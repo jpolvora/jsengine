@@ -1,13 +1,23 @@
 "use strict";
 var path = require('path');
 var pretty = require('pretty');
-var jsenginefs = require('./jsengine.fs');
+var fsViewLocator = require('./fsViewLocator');
 
-const cfg = {
-    basePath: '',
-    openFile: jsenginefs.execute,
-    dynamicOpenFile: undefined,
-    modelKey: '' //the key of the filePath property in options. If empty, fallback to filePath
+const viewLocators = [fsViewLocator];
+
+async function locateView(filePath, options) {
+    for (let i = 0; i < viewLocators.length; i++) {
+        let currentViewLocator = viewLocators[i];
+        if (typeof currentViewLocator.findView === "function") {
+            try {
+                let view = await currentViewLocator.findView(filePath, options);
+                if (typeof view === "string" && view.length) return view; //view found, return it.
+            } catch (error) {
+                console.error(error)
+                continue;
+            }
+        }
+    }
 }
 
 function processTemplate(html, options) {
@@ -34,27 +44,17 @@ function processTemplate(html, options) {
     }
     catch (err) {
         console.error(err)
-        result = "'" + err.message + "'", " in \n\nCode:\n", code, "\n";
+        result = "Error from processTemplate(): '" + err.message + "'", " in \n\nCode:\n", code, "\n";
     }
     return result;
 }
 
-function fixFileName(fileName, isDynamic) {
-
-    var result = isDynamic ? fileName.trim() : path.join(cfg.basePath, fileName).trim();
-
-    return result;
-}
-
-async function runPage(filePath, options, isDynamic) {
+async function runPage(filePath, options) {
     var debug = process.env.NODE_ENV == "development";
 
-    const openFile = isDynamic ? cfg.dynamicOpenFile : cfg.openFile;
+    var html = await locateView(filePath, options);
 
-    var html = await openFile(filePath);
-
-    let frag = isDynamic ? "DB" : "filesystem";
-    if (!html) throw new Error("Page not found in " + frag);
+    if (!html) throw new Error("Page not found by any viewlocators configured.");
 
     var filesRendered = [];
 
@@ -62,9 +62,9 @@ async function runPage(filePath, options, isDynamic) {
         if (!html || !html.startsWith('<!--master:')) break; //dont' forget to trim() string in start of file
         var lines = html.split('\n');
         var master = lines[0];
-        var masterFileName = fixFileName(master.split(':')[1].replace('-->', ''), isDynamic);
+        var masterFileName = master.split(':')[1].replace('-->', '').trim();
         if (filesRendered.includes(masterFileName)) break; //already rendered
-        var masterPage = await openFile(masterFileName);
+        var masterPage = await locateView(masterFileName);
         if (!masterPage) break;
         let newContent = html;
         if (!debug) {
@@ -85,8 +85,8 @@ async function runPage(filePath, options, isDynamic) {
     for (let i = 0; i < allLines.length; i++) {
         let line = allLines[i].trim();
         if (line.startsWith('<!--include:')) {
-            var includeFileName = fixFileName(line.split(':')[1].replace('-->', ''), isDynamic);
-            var partialPage = await openFile(includeFileName);
+            var includeFileName = line.split(':')[1].replace('-->', '').trim();
+            var partialPage = await locateView(includeFileName);
             if (!partialPage) continue;
             if (!debug) {
                 html = html.replace(line, partialPage);
@@ -130,8 +130,8 @@ async function runPage(filePath, options, isDynamic) {
     for (let i = 0; i < definedSections.length; i++) {
         let matchedSection = definedSections[i];
         //find the file and replace
-        const fileName = fixFileName(matchedSection.defaultContent, isDynamic);
-        const file = await openFile(fileName);
+        const fileName = matchedSection.defaultContent.trim();
+        const file = await locateView(fileName);
         if (file) {
             html = html.replace(matchedSection.line, file);
             matchedSection.rendered = true;
@@ -147,18 +147,9 @@ async function runPage(filePath, options, isDynamic) {
 }
 
 module.exports = {
-    execute: function (filePath, options, callback) {
-        var isDynamic = false;
-        if (options.dynamic && typeof cfg.dynamicOpenFile === "function") {
-            if (cfg.modelKey && typeof cfg.modelKey == "string" && cfg.modelKey.length > 0) {
-                //override for use with dynamic databases.
-                //there must exists a fake file pages.html or index.html in res.render method from route
-                isDynamic = true;
-                filePath = options[cfg.modelKey]
-            }
-        }
-
-        return runPage(filePath, options, isDynamic).then((result) => {
+    execute: function (basePath, filePath, options, callback) {
+        var fullPath = path.join(basePath, filePath);
+        return runPage(fullPath, options).then((result) => {
             return callback(null, result);
         }).catch((err) => {
             console.log(err);
@@ -166,10 +157,7 @@ module.exports = {
         });
     },
 
-    configure: function (options) {
-        if (options.modelKey) cfg.modelKey = options.modelKey;
-        if (options.openFile) cfg.openFile = options.openFile;
-        if (options.dynamicOpenFile) cfg.dynamicOpenFile = options.dynamicOpenFile;
-        if (options.basePath) cfg.basePath = options.basePath;
+    addViewLocator: function (viewLocator, index) {
+        viewLocators.splice(index, 0, viewLocator);
     }
 }
