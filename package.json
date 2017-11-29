@@ -1,0 +1,31 @@
+{
+  "name": "jsengine",
+  "version": "0.0.1",
+  "description": "A Javascript Template Engine for Node.js and the browser",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jpolvora/jsengine.git"
+  },
+  "keywords": [
+    "template",
+    "view",
+    "engine",
+    "node",
+    "javascript"
+  ],
+  "author": "jpolvora@gmail.com",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jpolvora/jsengine/issues"
+  },
+  "homepage": "https://github.com/jpolvora/jsengine#readme",
+  "dependencies": {
+    "fs": "0.0.1-security",
+    "path": "^0.12.7",
+    "pretty": "^2.0.0"
+  }
+}
