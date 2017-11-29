@@ -5,7 +5,7 @@ router.get('/:permalink?', async (req, res, next) => {
     //verificar o nome do arquivo
     const permalink = req.params.permalink || "/index";
 
-    return res.render('page', { dynamic: true, pretty: true, permalink: permalink, req: req, res: res });
+    return res.render('page', { title: 'a dynamic page: ' + permalink, permalink: permalink, req: req, res: res });
 });
 
 module.exports = router;
