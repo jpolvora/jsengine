@@ -5,6 +5,7 @@ var fsViewLocator = require('./viewlocator');
 const viewLocators = [fsViewLocator];
 
 async function locateView(options, filePath) {
+    if (!filePath || filePath.length == 0) return false;
     for (let i = 0; i < viewLocators.length; i++) {
         let currentViewLocator = viewLocators[i];
         if (typeof currentViewLocator.findView === "function") {
@@ -59,32 +60,27 @@ async function runPage(filePath, options) {
 
     var filesRendered = [];
 
+    var lines = html.split('\n');
     while (true) {
         if (!html || !html.startsWith('<!--master:')) break; //dont' forget to trim() string in start of file
-        var lines = html.split('\n');
         var master = lines[0];
         var masterFileName = master.split(':')[1].replace('-->', '').trim();
         if (filesRendered.includes(masterFileName)) break; //already rendered
         var masterPage = await findView(masterFileName);
         if (!masterPage) break;
-        let newContent = html;
-        if (!debug) {
-            lines.splice(0, 1); //remove first line
-            newContent = lines.join('\n');
-        }
-
-        html = masterPage.replace('<!--body-->', newContent)
-        //html = processTemplate(html, options);
+        let newContent = html.replace(master, '');
+        html = masterPage.replace('<!--renderbody-->', newContent)
         filesRendered.push(masterFileName);
     }
-
+    //update lines
+    lines = html.split('\n');
+    
     var definedSections = [],
         implementedSections = [];
 
     //base layout html mounted, now search for <!--include:html--> and replace (headers, footers)
-    var allLines = html.split('\n');
-    for (let i = 0; i < allLines.length; i++) {
-        let line = allLines[i].trim();
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].trim();
         if (line.startsWith('<!--include:')) {
             var includeFileName = line.split(':')[1].replace('-->', '').trim();
             var partialPage = await findView(includeFileName);
@@ -132,6 +128,10 @@ async function runPage(filePath, options) {
         let matchedSection = definedSections[i];
         //find the file and replace
         const fileName = matchedSection.defaultContent.trim();
+        if (!fileName || fileName.length == 0 || fileName === "none") {
+            html = html.replace(matchedSection.line, '');
+            continue;
+        };
         const file = await findView(fileName);
         if (file) {
             html = html.replace(matchedSection.line, file);
