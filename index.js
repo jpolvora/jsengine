@@ -5,12 +5,16 @@ var fsViewLocator = require('./fsviewlocator');
 
 const viewLocators = [fsViewLocator];
 
-async function locateView(filePath, options) {
+async function locateView(basePath, options, filePath) {
+    var fullPath = path.isAbsolute(filePath)
+        ? filePath
+        : path.join(basePath, filePath);
+
     for (let i = 0; i < viewLocators.length; i++) {
         let currentViewLocator = viewLocators[i];
         if (typeof currentViewLocator.findView === "function") {
             try {
-                let view = await currentViewLocator.findView(filePath, options);
+                let view = await currentViewLocator.findView(fullPath, options);
                 if (typeof view === "string" && view.length) return view; //view found, return it.
             } catch (error) {
                 console.error(error)
@@ -49,10 +53,12 @@ function processTemplate(html, options) {
     return result;
 }
 
-async function runPage(filePath, options) {
+async function runPage(basePath, filePath, options) {
     var debug = process.env.NODE_ENV == "development";
 
-    var html = await locateView(filePath, options);
+    const findView = locateView.bind(this, basePath, options);
+
+    var html = await findView(filePath);
 
     if (!html) throw new Error("Page not found by any viewlocators configured.");
 
@@ -64,7 +70,7 @@ async function runPage(filePath, options) {
         var master = lines[0];
         var masterFileName = master.split(':')[1].replace('-->', '').trim();
         if (filesRendered.includes(masterFileName)) break; //already rendered
-        var masterPage = await locateView(masterFileName);
+        var masterPage = await findView(masterFileName);
         if (!masterPage) break;
         let newContent = html;
         if (!debug) {
@@ -86,7 +92,7 @@ async function runPage(filePath, options) {
         let line = allLines[i].trim();
         if (line.startsWith('<!--include:')) {
             var includeFileName = line.split(':')[1].replace('-->', '').trim();
-            var partialPage = await locateView(includeFileName);
+            var partialPage = await findView(includeFileName);
             if (!partialPage) continue;
             if (!debug) {
                 html = html.replace(line, partialPage);
@@ -131,7 +137,7 @@ async function runPage(filePath, options) {
         let matchedSection = definedSections[i];
         //find the file and replace
         const fileName = matchedSection.defaultContent.trim();
-        const file = await locateView(fileName);
+        const file = await findView(fileName);
         if (file) {
             html = html.replace(matchedSection.line, file);
             matchedSection.rendered = true;
@@ -146,18 +152,20 @@ async function runPage(filePath, options) {
     return result;
 }
 
-module.exports = {
-    execute: function (basePath, filePath, options, callback) {
-        var fullPath = path.join(basePath, filePath);
-        return runPage(fullPath, options).then((result) => {
-            return callback(null, result);
-        }).catch((err) => {
-            console.log(err);
-            return callback(null, err.toString());
-        });
-    },
+module.exports = function (cfg) {
+    cfg.basePath = cfg.basePath || "";
+    return {
+        execute: function (filePath, options, callback) {
+            return runPage(cfg.basePath, filePath, options).then((result) => {
+                return callback(null, result);
+            }).catch((err) => {
+                console.log(err);
+                return callback(null, err.toString());
+            });
+        },
 
-    addViewLocator: function (viewLocator, index) {
-        viewLocators.splice(index, 0, viewLocator);
+        addViewLocator: function (viewLocator, index) {
+            viewLocators.splice(index, 0, viewLocator);
+        }
     }
 }
