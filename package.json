@@ -19,7 +19,9 @@
   ],
   "files": [
     "index.js",
-    "jsengine.fs.js"
+    "fsviewlocator.js",
+    "package.json",
+    "README.md"
   ],
   "author": "jpolvora@gmail.com",
   "license": "MIT",

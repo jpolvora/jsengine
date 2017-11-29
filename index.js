@@ -1,7 +1,7 @@
 "use strict";
 var path = require('path');
 var pretty = require('pretty');
-var fsViewLocator = require('./fsViewLocator');
+var fsViewLocator = require('./fsviewlocator');
 
 const viewLocators = [fsViewLocator];
 
