@@ -11,13 +11,9 @@ var users = require('./routes/users');
 var app = express();
 
 // view engine setup
-var basePath = path.join(__dirname, 'views');
-var jsengine = require('../index')({
-  //pass cfg.basePath
-  basePath: basePath
-});
+var jsengine = require('../index')({ /* todo: options */});
 app.engine('html', jsengine.execute);
-app.set('views', basePath);
+app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'html');
 
 // uncomment after placing your favicon in /public

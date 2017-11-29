@@ -1,20 +1,15 @@
 "use strict";
-var path = require('path');
 var pretty = require('pretty');
 var fsViewLocator = require('./fsviewlocator');
 
 const viewLocators = [fsViewLocator];
 
-async function locateView(basePath, options, filePath) {
-    var fullPath = path.isAbsolute(filePath)
-        ? filePath
-        : path.join(basePath, filePath);
-
+async function locateView(options, filePath) {
     for (let i = 0; i < viewLocators.length; i++) {
         let currentViewLocator = viewLocators[i];
         if (typeof currentViewLocator.findView === "function") {
             try {
-                let view = await currentViewLocator.findView(fullPath, options);
+                let view = await currentViewLocator.findView(filePath.trim(), options);
                 if (typeof view === "string" && view.length) return view; //view found, return it.
             } catch (error) {
                 console.error(error)
@@ -53,10 +48,10 @@ function processTemplate(html, options) {
     return result;
 }
 
-async function runPage(basePath, filePath, options) {
+async function runPage(filePath, options) {
     var debug = process.env.NODE_ENV == "development";
 
-    const findView = locateView.bind(this, basePath, options);
+    const findView = locateView.bind(this, options);
 
     var html = await findView(filePath);
 
@@ -153,10 +148,12 @@ async function runPage(basePath, filePath, options) {
 }
 
 module.exports = function (cfg) {
-    cfg.basePath = cfg.basePath || "";
+    cfg = cfg || {};
+    //cfg.basePath = cfg.basePath || "";
+    //todo: more config later...
     return {
         execute: function (filePath, options, callback) {
-            return runPage(cfg.basePath, filePath, options).then((result) => {
+            return runPage(filePath, options).then((result) => {
                 return callback(null, result);
             }).catch((err) => {
                 console.log(err);
