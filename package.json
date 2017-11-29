@@ -1,6 +1,6 @@
 {
   "name": "jsengine",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "A Javascript Template Engine for Node.js and the browser",
   "main": "index.js",
   "scripts": {
@@ -19,7 +19,7 @@
   ],
   "files": [
     "index.js",
-    "fsviewlocator.js",
+    "viewlocator.js",
     "package.json",
     "README.md"
   ],
