@@ -4,8 +4,11 @@ var fsViewLocator = require('./viewlocator');
 
 const viewLocators = [fsViewLocator];
 
+const cache = {};
+
 const jsengineconfig = {
     filePathOption: "permalink",
+    cache: true,
     pretty: true
 }
 
@@ -25,7 +28,7 @@ async function locateView(options, filePath) {
     }
 }
 
-function processTemplate(html, options) {
+function compileTemplate(html) {
     if (!html) return "";
     var re = /<%(.+?)%>/g,
         reExp = /(^( )?(var|if|for|else|switch|case|break|{|}|;))(.*)?/g,
@@ -43,15 +46,13 @@ function processTemplate(html, options) {
     }
     add(html.substr(cursor, html.length - cursor));
     code = (code + 'return r.join(""); }').replace(/[\r\t\n]/g, ' ');
-    let result = '';
     try {
-        result = new Function('obj', code).apply(options, [options]);
+        return new Function('obj', code);
     }
     catch (err) {
         console.error(err)
-        result = "Error from processTemplate(): '" + err.message + "'", " in \n\nCode:\n", code, "\n";
+        throw new Error("Error compiling template: '" + err.message + "'\n in \n\nCode:\n" + code);
     }
-    return result;
 }
 
 async function runPage(filePath, options) {
@@ -59,91 +60,108 @@ async function runPage(filePath, options) {
         ? options[jsengineconfig.filePathOption]
         : filePath;
 
-    const findView = locateView.bind(this, options);
+    let compiledTemplate;
 
-    var html = await findView(mainFilePath);
+    if (jsengineconfig.cache && cache.hasOwnProperty(mainFilePath) && typeof cache[mainFilePath] === "function") {
+        compiledTemplate = cache[mainFilePath];
+    } else {
+        const findView = locateView.bind(this, options);
 
-    if (!html) throw new Error("Page not found by any configured viewlocators.");
+        var html = await findView(mainFilePath);
 
-    var filesRendered = [];
+        if (!html) throw new Error("Page not found by any configured viewlocators.");
 
-    var lines = html.split('\n');
-    while (true) {
-        if (!html || !html.startsWith('<!--layout:')) break;
-        var layoutDirective = lines[0].trim();
-        var layoutFileName = layoutDirective.split(':')[1].replace('-->', '');
-        if (filesRendered.includes(layoutFileName)) break; //already rendered
-        var layoutContent = await findView(layoutFileName);
-        if (!layoutContent) break;
-        let childContent = html.replace(layoutDirective, '');
-        html = layoutContent.replace('<!--renderbody-->', childContent)
-        filesRendered.push(layoutFileName);
-    }
-    //update lines
-    lines = html.split('\n');
+        var filesRendered = [];
 
-    var definedSections = [],
-        implementedSections = [];
-
-    //layout structure ready to do replacements
-    for (let i = 0; i < lines.length; i++) {
-        let line = lines[i].trim();
-        if (line.startsWith('<!--renderpartial:')) {
-            var partialViewFileName = line.split(':')[1].replace('-->', '').trim();
-            var partialViewContent = await findView(partialViewFileName);
-            if (!partialViewContent) continue;
-            html = html.replace(line, partialViewContent);
-        } else if (line.startsWith('<!--section:')) {
-            var section = line.replace('<!--', '').replace('-->', '').trim().split(':');
-            if (section.length === 3) {
-                implementedSections.push({
-                    sectionName: section[1],
-                    fileName: section[2]
-                })
-            }
-        } else if (line.startsWith('<!--rendersection:')) {
-            //get the section name, and the default file to render.
-            var section = line.replace('<!--', '').replace('-->', '').trim().split(':');
-            if (section.length === 3) {
-                definedSections.push({
-                    sectionName: section[1],
-                    fileName: section[2],
-                    line: line
-                })
-            }
+        var lines = html.split('\n');
+        while (true) {
+            if (!html || !html.startsWith('<!--layout:')) break;
+            var layoutDirective = lines[0].trim();
+            var layoutFileName = layoutDirective.split(':')[1].replace('-->', '');
+            if (filesRendered.includes(layoutFileName)) break; //already rendered
+            var layoutContent = await findView(layoutFileName);
+            if (!layoutContent) break;
+            let childContent = html.replace(layoutDirective, '');
+            html = layoutContent.replace('<!--renderbody-->', childContent)
+            filesRendered.push(layoutFileName);
         }
-    }
+        //update lines
+        lines = html.split('\n');
 
-    for (let i = 0; i < definedSections.length; i++) {
-        var definedSection = definedSections[i];
-        for (let j = 0; j < implementedSections.length; j++) {
-            var implementedSection = implementedSections[j];
-            if (implementedSection.sectionName === definedSection.sectionName) {
-                definedSection.fileName = implementedSection.fileName;
+        var definedSections = [],
+            implementedSections = [];
+
+        //layout structure ready to do replacements
+        for (let i = 0; i < lines.length; i++) {
+            let line = lines[i].trim();
+            if (line.startsWith('<!--renderpartial:')) {
+                var partialViewFileName = line.split(':')[1].replace('-->', '').trim();
+                var partialViewContent = await findView(partialViewFileName);
+                if (!partialViewContent) continue;
+                html = html.replace(line, partialViewContent);
+            } else if (line.startsWith('<!--section:')) {
+                var section = line.replace('<!--', '').replace('-->', '').trim().split(':');
+                if (section.length === 3) {
+                    implementedSections.push({
+                        sectionName: section[1],
+                        fileName: section[2]
+                    })
+                }
+            } else if (line.startsWith('<!--rendersection:')) {
+                //get the section name, and the default file to render.
+                var section = line.replace('<!--', '').replace('-->', '').trim().split(':');
+                if (section.length === 3) {
+                    definedSections.push({
+                        sectionName: section[1],
+                        fileName: section[2],
+                        line: line
+                    })
+                }
             }
         }
-    }
 
-    for (let i = 0; i < definedSections.length; i++) {
-        let currentSection = definedSections[i];
-        //find the file and replace
-        const fileName = currentSection.fileName.trim();
-        if (!fileName || fileName.length == 0 || fileName === "none") {
-            html = html.replace(currentSection.line, '');
-            continue;
-        };
-        const content = await findView(fileName);
-        if (content) {
-            html = html.replace(currentSection.line, content);
+        for (let i = 0; i < definedSections.length; i++) {
+            var definedSection = definedSections[i];
+            for (let j = 0; j < implementedSections.length; j++) {
+                var implementedSection = implementedSections[j];
+                if (implementedSection.sectionName === definedSection.sectionName) {
+                    definedSection.fileName = implementedSection.fileName;
+                }
+            }
+        }
+
+        for (let i = 0; i < definedSections.length; i++) {
+            let currentSection = definedSections[i];
+            //find the file and replace
+            const fileName = currentSection.fileName.trim();
+            if (!fileName || fileName.length == 0 || fileName === "none") {
+                html = html.replace(currentSection.line, '');
+                continue;
+            };
+            const content = await findView(fileName);
+            if (content) {
+                html = html.replace(currentSection.line, content);
+            }
+        }
+
+        try {
+            compiledTemplate = compileTemplate(html);
+        } catch (error) {
+            compiledTemplate = () => error.toString();
         }
     }
-
-    var result = processTemplate(html, options);
-    if (jsengineconfig.pretty) {
-        return pretty(result);
+    if (jsengineconfig.cache) {
+        cache[mainFilePath] = compiledTemplate;
     }
-
-    return result;
+    let result = "";
+    try {
+        result = compiledTemplate.apply(options, [options]);
+    } catch (error) {
+        result = error.toString();
+    }
+    return jsengineconfig.pretty
+        ? pretty(result)
+        : result;
 }
 
 module.exports = function (cfg = {}) {
