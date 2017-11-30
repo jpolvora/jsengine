@@ -1,12 +1,15 @@
 var express = require('express');
 var router = express.Router();
 
+var pubsub = require('../pubsub');
+
 //this route must be last inserted because is a catch all.
 router.all('/:pathinfo?', async (req, res, next) => {
   const permalink = req.params.pathinfo || "/";
   if (permalink == "/") {
     return res.render('index', { title: "Express" });
   }
+  pubsub.emit('filechanged', permalink);
 
   //use a fake physical file to satisfy engine express.
   //the template engine will search for the view path "permalink"
