@@ -56,59 +56,52 @@ async function runPage(filePath, options) {
 
     var html = await findView(filePath);
 
-    if (!html) throw new Error("Page not found by any viewlocators configured.");
+    if (!html) throw new Error("Page not found by any configured viewlocators.");
 
     var filesRendered = [];
 
     var lines = html.split('\n');
     while (true) {
-        if (!html || !html.startsWith('<!--master:')) break; //dont' forget to trim() string in start of file
-        var master = lines[0];
-        var masterFileName = master.split(':')[1].replace('-->', '').trim();
-        if (filesRendered.includes(masterFileName)) break; //already rendered
-        var masterPage = await findView(masterFileName);
-        if (!masterPage) break;
-        let newContent = html.replace(master, '');
-        html = masterPage.replace('<!--renderbody-->', newContent)
-        filesRendered.push(masterFileName);
+        if (!html || !html.startsWith('<!--layout:')) break;
+        var layoutDirective = lines[0].trim();
+        var layoutFileName = layoutDirective.split(':')[1].replace('-->', '');
+        if (filesRendered.includes(layoutFileName)) break; //already rendered
+        var layoutContent = await findView(layoutFileName);
+        if (!layoutContent) break;
+        let childContent = html.replace(layoutDirective, '');
+        html = layoutContent.replace('<!--renderbody-->', childContent)
+        filesRendered.push(layoutFileName);
     }
     //update lines
     lines = html.split('\n');
-    
+
     var definedSections = [],
         implementedSections = [];
 
-    //base layout html mounted, now search for <!--include:html--> and replace (headers, footers)
+    //layout structure ready to do replacements
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i].trim();
-        if (line.startsWith('<!--include:')) {
-            var includeFileName = line.split(':')[1].replace('-->', '').trim();
-            var partialPage = await findView(includeFileName);
-            if (!partialPage) continue;
-            if (!debug) {
-                html = html.replace(line, partialPage);
-            } else {
-                var pos = html.indexOf(line) + line.length;
-                html = html.substr(0, pos) + partialPage + html.substr(pos);
-            }
+        if (line.startsWith('<!--renderpartial:')) {
+            var partialViewFileName = line.split(':')[1].replace('-->', '').trim();
+            var partialViewContent = await findView(partialViewFileName);
+            if (!partialViewContent) continue;
+            html = html.replace(line, partialViewContent);
         } else if (line.startsWith('<!--section:')) {
-            var section = line.replace('<!--', '').replace('-->', '').split(':');
+            var section = line.replace('<!--', '').replace('-->', '').trim().split(':');
             if (section.length === 3) {
                 implementedSections.push({
                     sectionName: section[1],
-                    defaultContent: section[2]
+                    fileName: section[2]
                 })
             }
         } else if (line.startsWith('<!--rendersection:')) {
             //get the section name, and the default file to render.
-            var section = line.replace('<!--', '').replace('-->', '').split(':');
+            var section = line.replace('<!--', '').replace('-->', '').trim().split(':');
             if (section.length === 3) {
                 definedSections.push({
                     sectionName: section[1],
-                    defaultContent: section[2],
-                    line: line,
-                    lineNumber: i,
-                    rendered: false
+                    fileName: section[2],
+                    line: line
                 })
             }
         }
@@ -119,23 +112,22 @@ async function runPage(filePath, options) {
         for (let j = 0; j < implementedSections.length; j++) {
             var implementedSection = implementedSections[j];
             if (implementedSection.sectionName === definedSection.sectionName) {
-                definedSection.defaultContent = implementedSection.defaultContent;
+                definedSection.fileName = implementedSection.fileName;
             }
         }
     }
 
     for (let i = 0; i < definedSections.length; i++) {
-        let matchedSection = definedSections[i];
+        let currentSection = definedSections[i];
         //find the file and replace
-        const fileName = matchedSection.defaultContent.trim();
+        const fileName = currentSection.fileName.trim();
         if (!fileName || fileName.length == 0 || fileName === "none") {
-            html = html.replace(matchedSection.line, '');
+            html = html.replace(currentSection.line, '');
             continue;
         };
-        const file = await findView(fileName);
-        if (file) {
-            html = html.replace(matchedSection.line, file);
-            matchedSection.rendered = true;
+        const content = await findView(fileName);
+        if (content) {
+            html = html.replace(currentSection.line, content);
         }
     }
 
@@ -143,7 +135,7 @@ async function runPage(filePath, options) {
     if (options.pretty || debug) {
         return pretty(result);
     }
-
+    
     return result;
 }
 
