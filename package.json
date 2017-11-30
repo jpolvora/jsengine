@@ -1,6 +1,6 @@
 {
   "name": "jsengine",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A Javascript Template Engine for Node.js and the browser",
   "main": "index.js",
   "scripts": {

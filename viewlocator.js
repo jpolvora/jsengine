@@ -8,6 +8,9 @@ module.exports = {
             var fullPath = path.isAbsolute(filePath)
                 ? filePath
                 : path.join(options.settings.views, filePath);
+            if ("" === path.extname(fullPath)) {
+                fullPath = fullPath + ".html";
+            }
             if (fs.existsSync(fullPath)) {
                 fs.readFile(fullPath, (err, contents) => {
                     if (err) return reject(err);
