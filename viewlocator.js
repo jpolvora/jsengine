@@ -3,7 +3,7 @@ var path = require('path');
 
 //FileSystemViewLocator
 module.exports = {
-    findView: (filePath, options) => {
+    findView: (filePath, options, jsengineconfig) => {
         return new Promise((resolve, reject) => {
             var fullPath = path.isAbsolute(filePath)
                 ? filePath

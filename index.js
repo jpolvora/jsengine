@@ -4,8 +4,9 @@ var fsViewLocator = require('./viewlocator');
 
 const viewLocators = [fsViewLocator];
 
-var defaultOptions = {
-    filePathOption: "permalink"
+const jsengineconfig = {
+    filePathOption: "permalink",
+    pretty: true
 }
 
 async function locateView(options, filePath) {
@@ -14,7 +15,7 @@ async function locateView(options, filePath) {
         let currentViewLocator = viewLocators[i];
         if (typeof currentViewLocator.findView === "function") {
             try {
-                let view = await currentViewLocator.findView(filePath.trim(), options);
+                let view = await currentViewLocator.findView(filePath.trim(), options, jsengineconfig);
                 if (typeof view === "string" && view.length) return view; //view found, return it.
             } catch (error) {
                 console.error(error)
@@ -54,11 +55,13 @@ function processTemplate(html, options) {
 }
 
 async function runPage(filePath, options) {
-    var debug = process.env.NODE_ENV == "development";
+    var mainFilePath = options[jsengineconfig.filePathOption]
+        ? options[jsengineconfig.filePathOption]
+        : filePath;
 
     const findView = locateView.bind(this, options);
 
-    var html = await findView(filePath);
+    var html = await findView(mainFilePath);
 
     if (!html) throw new Error("Page not found by any configured viewlocators.");
 
@@ -136,7 +139,7 @@ async function runPage(filePath, options) {
     }
 
     var result = processTemplate(html, options);
-    if (options.pretty || debug) {
+    if (jsengineconfig.pretty) {
         return pretty(result);
     }
 
@@ -144,14 +147,10 @@ async function runPage(filePath, options) {
 }
 
 module.exports = function (cfg = {}) {
-    Object.assign(cfg, defaultOptions);
+    Object.assign(jsengineconfig, cfg);
     return {
         execute: function (filePath, options, callback) {
-            var currentFilePath = options[cfg.filePathOption] && !options[cfg.flagProperty]
-                ? options[cfg.filePathOption]
-                : filePath;
-
-            return runPage(currentFilePath, options).then((result) => {
+            return runPage(filePath, options).then((result) => {
                 return callback(null, result);
             }).catch((err) => {
                 console.log(err);
