@@ -4,6 +4,10 @@ var fsViewLocator = require('./viewlocator');
 
 const viewLocators = [fsViewLocator];
 
+var defaultOptions = {
+    filePathOption: "permalink"
+}
+
 async function locateView(options, filePath) {
     if (!filePath || filePath.length == 0) return false;
     for (let i = 0; i < viewLocators.length; i++) {
@@ -135,17 +139,19 @@ async function runPage(filePath, options) {
     if (options.pretty || debug) {
         return pretty(result);
     }
-    
+
     return result;
 }
 
-module.exports = function (cfg) {
-    cfg = cfg || {};
-    //cfg.basePath = cfg.basePath || "";
-    //todo: more config later...
+module.exports = function (cfg = {}) {
+    Object.assign(cfg, defaultOptions);
     return {
         execute: function (filePath, options, callback) {
-            return runPage(filePath, options).then((result) => {
+            var currentFilePath = options[cfg.filePathOption] && !options[cfg.flagProperty]
+                ? options[cfg.filePathOption]
+                : filePath;
+
+            return runPage(currentFilePath, options).then((result) => {
                 return callback(null, result);
             }).catch((err) => {
                 console.log(err);
