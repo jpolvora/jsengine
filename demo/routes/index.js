@@ -12,7 +12,7 @@ router.all('/:pathinfo?', async (req, res, next) => {
   //the template engine will search for the view path "permalink"
   return res.render('page', {
     title: 'a dynamic page: ' + permalink,
-    permalink: permalink + ".html",
+    permalink: permalink,
     req: req,
     res: res
   });

@@ -47,6 +47,7 @@ function compileTemplate(html) {
     add(html.substr(cursor, html.length - cursor));
     code = (code + 'return r.join(""); }').replace(/[\r\t\n]/g, ' ');
     try {
+        //obj is the name of argument accesible inside the function (with obj{})
         return new Function('obj', code);
     }
     catch (err) {
@@ -55,7 +56,7 @@ function compileTemplate(html) {
     }
 }
 
-async function runPage(filePath, options) {
+async function getCompiledTemplate(filePath, options) {
     var mainFilePath = options[jsengineconfig.filePathOption]
         ? options[jsengineconfig.filePathOption]
         : filePath;
@@ -150,31 +151,44 @@ async function runPage(filePath, options) {
             compiledTemplate = () => error.toString();
         }
     }
+
     if (jsengineconfig.cache) {
         cache[mainFilePath] = compiledTemplate;
     }
-    let result = "";
-    try {
-        result = compiledTemplate.apply(options, [options]);
-    } catch (error) {
-        result = error.toString();
-    }
-    return jsengineconfig.pretty
-        ? pretty(result)
-        : result;
+
+    return compiledTemplate;
 }
 
 module.exports = function (cfg = {}) {
     Object.assign(jsengineconfig, cfg);
+
     let singleton;
     return singleton = {
+        compile: async function (filePath, options) {
+            return await getCompiledTemplate(filePath, options)
+        },
+
         execute: function (filePath, options, callback) {
-            return runPage(filePath, options).then((result) => {
+            return getCompiledTemplate(filePath, options).then((compiledTemplate) => {
+                let result = "";
+                try {
+                    result = compiledTemplate.apply(options, [options]);
+                } catch (error) {
+                    result = error.toString();
+                }
+                
+                if (jsengineconfig.pretty)
+                    result = pretty(result);
+
                 return callback(null, result);
             }).catch((err) => {
                 console.log(err);
                 return callback(null, err.toString());
             });
+        },
+
+        compile: function () {
+
         },
 
         addViewLocator: function (viewLocator, index) {
