@@ -148,7 +148,8 @@ async function runPage(filePath, options) {
 
 module.exports = function (cfg = {}) {
     Object.assign(jsengineconfig, cfg);
-    return {
+    let singleton;
+    return singleton = {
         execute: function (filePath, options, callback) {
             return runPage(filePath, options).then((result) => {
                 return callback(null, result);
@@ -160,6 +161,7 @@ module.exports = function (cfg = {}) {
 
         addViewLocator: function (viewLocator, index) {
             viewLocators.splice(index, 0, viewLocator);
+            return singleton;
         }
     }
 }
