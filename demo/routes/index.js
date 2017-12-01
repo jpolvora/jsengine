@@ -3,17 +3,18 @@ var router = express.Router();
 var pubsub = require('../pubsub');
 var jsengine = require('../../index')({});
 var path = require('path');
+var beautify = require('js-beautify').html;
 
 const template = `
 <html>
-  <body><%$model.test%></body>
+  <body><%$model.message%></body>
 </html>
 `;
 
 router.get('/render', function (req, res) {
   let compiledTemplate = jsengine.compile(template);
-  let html = jsengine.render(compiledTemplate, { test: 'hello' });
-  res.send(html);
+  let html = compiledTemplate({ message: 'hello' });
+  res.send(beautify(html));
 });
 
 //this route must be last inserted because is a catch all.

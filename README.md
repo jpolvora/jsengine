@@ -9,6 +9,21 @@ See the /demo folder for an express app running. Specially the configuration in 
 
 ### Docs: coming soon
 
+# Example
+```js
+const jsengine = require('jsengine')({ /*options*/});
+
+const template = `
+<html>
+  <body><%$model.message%></body>
+</html>
+`;
+
+let compiledTemplate = jsengine.compile(template);
+let html = compiledTemplate({ message: 'hello world!' });
+console.log(html);
+```
+
 # The basics
 JsEngine is based on layout structure of .NET Razor View Engine. If you ever has worked with Razor Pages, you are already familiar with `@Layout="_Layout.cshtml"`, `@RenderSection("sectionanme")`, `@RenderPartial("partial-page")` and so on.
 
