@@ -1,15 +1,14 @@
 "use strict";
-var pretty = require('pretty');
+var beautify_js = require('js-beautify'); // also available under "js" export
+var beautify_css = require('js-beautify').css;
+var beautify_html = require('js-beautify').html;
+
 var fsViewLocator = require('./viewlocator');
+var fs = require('fs');
 
 const viewLocators = [fsViewLocator];
 
-const cache = {
-    key: {
-        fn: function () { },
-        files: []
-    }
-};
+const cache = {};
 
 const jsengineconfig = {
     filePathOption: "permalink",
@@ -33,11 +32,10 @@ async function locateView(options, filePath) {
     }
 }
 
-function compileTemplate(html) {
-    if (!html) return "";
+function compileTemplate(html = "") {
     var re = /<%(.+?)%>/g,
-        reExp = /(^( )?(var|if|for|else|switch|case|break|{|}|;))(.*)?/g,
-        code = 'with(obj) { var r=[];\n',
+        reExp = /(^( )?(const|let|var|if|for|else|switch|case|break|{|}|;))(.*)?/g,
+        code = 'return (function($model) { var r=[];\n',
         cursor = 0,
         match;
     var add = function (line, js) {
@@ -50,9 +48,11 @@ function compileTemplate(html) {
         cursor = match.index + match[0].length;
     }
     add(html.substr(cursor, html.length - cursor));
-    code = (code + 'return r.join(""); }').replace(/[\r\t\n]/g, ' ');
+    code = (code + 'return r.join(""); })(obj)').replace(/[\r\t\n]/g, ' ');
     try {
         //obj is the name of argument accesible inside the function (with obj{})
+        //fs.writeFileSync('d:\\temp\\compiled.js', beautify_js(code));
+        if (jsengineconfig.pretty) code = beautify_js(code);
         return new Function('obj', code);
     }
     catch (err) {
@@ -81,7 +81,9 @@ async function getCompiledTemplate(filePath, options) {
 
     var html = await findView(mainFilePath);
 
-    if (!html) throw new Error("Page not found by any configured viewlocators.");
+    if (!html) {
+        throw new Error(`Page '${mainFilePath}' not found by any configured viewlocators.`)
+    };
 
     var filesRendered = [mainFilePath];
 
@@ -193,7 +195,7 @@ module.exports = function (cfg = {}) {
                 }
 
                 if (jsengineconfig.pretty)
-                    result = pretty(result);
+                    result = beautify_html(result);
 
                 return callback(null, result);
             }).catch((err) => {
