@@ -3,11 +3,11 @@ var path = require('path');
 
 //FileSystemViewLocator
 module.exports = {
-    findView: (filePath, options, jsengineconfig) => {
+    findView: (filePath, jsengineconfig) => {
         return new Promise((resolve, reject) => {
-            var fullPath = path.isAbsolute(filePath)
+            let fullPath = path.isAbsolute(filePath)
                 ? filePath
-                : path.join(options.settings.views, filePath);
+                : path.join(jsengineconfig.views, filePath);
             if ("" === path.extname(fullPath)) {
                 fullPath = fullPath + ".html";
             }

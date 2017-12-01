@@ -11,18 +11,18 @@ const viewLocators = [fsViewLocator];
 const cache = {};
 
 const jsengineconfig = {
-    filePathOption: "permalink",
     cache: true,
-    pretty: true
+    pretty: true,
+    views: ''
 }
 
-async function locateView(options, filePath) {
-    if (!filePath || filePath.length == 0) return false;
+async function locateView(filePath = "") {
+    if (!filePath) return false;
     for (let i = 0; i < viewLocators.length; i++) {
         let currentViewLocator = viewLocators[i];
         if (typeof currentViewLocator.findView === "function") {
             try {
-                let view = await currentViewLocator.findView(filePath.trim(), options, jsengineconfig);
+                let view = await currentViewLocator.findView(filePath.trim(), jsengineconfig);
                 if (typeof view === "string" && view.length) return view; //view found, return it.
             } catch (error) {
                 console.error(error)
@@ -61,39 +61,22 @@ function compileTemplate(html = "") {
     }
 }
 
-async function getCompiledTemplate(filePath, options) {
-    var mainFilePath = options[jsengineconfig.filePathOption]
-        ? options[jsengineconfig.filePathOption]
-        : filePath;
-
-    let compiledTemplate;
-
-    if (jsengineconfig.cache && cache.hasOwnProperty(mainFilePath)) {
-        var entry = cache[mainFilePath];
-        if (typeof entry.fn === "function")
-            compiledTemplate = entry.fn;
-        else delete cache[mainFilePath];
-    }
-
-    if (compiledTemplate) return compiledTemplate;
-
-    const findView = locateView.bind(this, options);
-
-    var html = await findView(mainFilePath);
-
+/* returns the html */
+async function generateTemplate(mainFilePath) {
+    let html = await locateView(mainFilePath);
     if (!html) {
-        throw new Error(`Page '${mainFilePath}' not found by any configured viewlocators.`)
+        throw new Error(`Template '${mainFilePath}' not found at path '${jsengineconfig.view}'`)
     };
 
-    var filesRendered = [mainFilePath];
+    const filesRendered = [mainFilePath];
 
     var lines = html.split('\n');
     while (true) {
-        if (!html || !html.startsWith('<!--layout:')) break;
+        if (!html.startsWith('<!--layout:')) break;
         var layoutDirective = lines[0].trim();
         var layoutFileName = layoutDirective.split(':')[1].replace('-->', '');
         if (filesRendered.includes(layoutFileName)) break; //already rendered
-        var layoutContent = await findView(layoutFileName);
+        var layoutContent = await locateView(layoutFileName);
         if (!layoutContent) break;
         let childContent = html.replace(layoutDirective, '');
         html = layoutContent.replace('<!--renderbody-->', childContent)
@@ -110,7 +93,7 @@ async function getCompiledTemplate(filePath, options) {
         let line = lines[i].trim();
         if (line.startsWith('<!--renderpartial:')) {
             var partialViewFileName = line.split(':')[1].replace('-->', '').trim();
-            var partialViewContent = await findView(partialViewFileName);
+            var partialViewContent = await locateView(partialViewFileName);
             if (!partialViewContent) continue;
             filesRendered.push(partialViewFileName);
             html = html.replace(line, partialViewContent);
@@ -153,13 +136,26 @@ async function getCompiledTemplate(filePath, options) {
             html = html.replace(currentSection.line, '');
             continue;
         };
-        const content = await findView(fileName);
+        const content = await locateView(fileName);
         if (content) {
             filesRendered.push(fileName);
             html = html.replace(currentSection.line, content);
         }
     }
 
+    return html;
+}
+
+async function getCompiledTemplate(mainFilePath) {
+    if (jsengineconfig.cache && cache.hasOwnProperty(mainFilePath)) {
+        var entry = cache[mainFilePath];
+        if (typeof entry.fn === "function")
+            return entry.fn;
+    }
+
+    let html = await generateTemplate(mainFilePath)
+
+    let compiledTemplate;
     try {
         compiledTemplate = compileTemplate(html);
     } catch (error) {
@@ -179,21 +175,34 @@ async function getCompiledTemplate(filePath, options) {
 module.exports = function (cfg = {}) {
     Object.assign(jsengineconfig, cfg);
 
-    let singleton;
-    return singleton = {
-        compile: async function (filePath, options) {
-            return await getCompiledTemplate(filePath, options)
+    let facade;
+    return facade = {
+        generateTemplate: generateTemplate,
+
+        //compile direct from string. No viewlocator, no options.
+        compile: function (html) {
+            return compileTemplate(html);
         },
 
-        execute: function (filePath, options, callback) {
-            return getCompiledTemplate(filePath, options).then((compiledTemplate) => {
-                let result = "";
-                try {
-                    result = compiledTemplate.apply(options, [options]);
-                } catch (error) {
-                    result = error.toString();
-                }
+        render: function (rawOrCompiled, options, throwError = false) {
+            let compiledTemplate = typeof rawOrCompiled === "function"
+                ? rawOrCompiled
+                : facade.compile(rawOrCompiled);
 
+            let result = "";
+            try {
+                result = compiledTemplate.apply(options, [options]);
+            } catch (error) {
+                if (throwError) throw error;
+                result = error.toString();
+            }
+            return result;
+        },
+
+        //for usage with express.js
+        express: function (filePath, options, callback) {
+            return getCompiledTemplate(filePath).then((compiledTemplate) => {
+                let result = facade.render(compiledTemplate, options);
                 if (jsengineconfig.pretty)
                     result = beautify_html(result);
 
@@ -206,7 +215,7 @@ module.exports = function (cfg = {}) {
 
         addViewLocator: function (viewLocator, index) {
             viewLocators.splice(index, 0, viewLocator);
-            return singleton;
+            return facade;
         },
 
         uncache: function (changedFile) {

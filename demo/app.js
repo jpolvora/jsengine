@@ -7,14 +7,18 @@ var bodyParser = require('body-parser');
 var pubsub = require('./pubsub');
 
 var index = require('./routes/index');
-var users = require('./routes/users');
 
 var app = express();
 
+const views = path.join(__dirname, 'views');
+
 // view engine setup
-var jsengine = require('../index')({cache: false});
-app.engine('html', jsengine.execute);
-app.set('views', path.join(__dirname, 'views'));
+var jsengine = require('../index')({
+  cache: false,
+  views: views
+});
+app.engine('html', jsengine.express);
+app.set('views', views);
 app.set('view engine', 'html');
 
 pubsub.on('filechanged', function (fileName) {
@@ -29,8 +33,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use('/users', users);
-app.use('/', index); //catch all
+app.use('/', index);
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
