@@ -35,7 +35,7 @@ async function locateView(filePath = "") {
 function compileTemplate(html = "") {
     var re = /<%(.+?)%>/g,
         reExp = /(^( )?(const|let|var|if|for|else|switch|case|break|{|}|;))(.*)?/g,
-        code = 'return (function($model) { var r=[];\n',
+        code = 'return (function ($model) { var r=[];\n',
         cursor = 0,
         match;
     var add = function (line, js) {
@@ -50,25 +50,21 @@ function compileTemplate(html = "") {
     add(html.substr(cursor, html.length - cursor));
     code = (code + 'return r.join(""); })(obj)').replace(/[\r\t\n]/g, ' ');
     try {
-        //obj is the name of argument accesible inside the function (with obj{})
-        //fs.writeFileSync('d:\\temp\\compiled.js', beautify_js(code));
         if (jsengineconfig.pretty) code = beautify_js(code);
-        return new Function('obj', code);
+        var fn = new Function('obj', code);
+        return fn;
     }
     catch (err) {
-        console.error(err)
         throw new Error("Error compiling template: '" + err.message + "'\n in \n\nCode:\n" + code);
     }
 }
 
 /* returns the html */
-async function generateTemplate(mainFilePath) {
+async function generateTemplate(mainFilePath, filesRendered = []) {
     let html = await locateView(mainFilePath);
     if (!html) {
         throw new Error(`Template '${mainFilePath}' not found at path '${jsengineconfig.view}'`)
     };
-
-    const filesRendered = [mainFilePath];
 
     var lines = html.split('\n');
     while (true) {
@@ -153,7 +149,9 @@ async function getCompiledTemplate(mainFilePath) {
             return entry.fn;
     }
 
-    let html = await generateTemplate(mainFilePath)
+    const filesRendered = [mainFilePath];
+
+    let html = await generateTemplate(mainFilePath, filesRendered)
 
     let compiledTemplate;
     try {
@@ -208,8 +206,8 @@ module.exports = function (cfg = {}) {
 
                 return callback(null, result);
             }).catch((err) => {
-                console.log(err);
-                return callback(null, err.toString());
+                console.error(err);
+                return callback(err);
             });
         },
 
