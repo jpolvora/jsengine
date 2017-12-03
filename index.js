@@ -6,23 +6,14 @@ var beautify_html = require('js-beautify').html;
 var fsViewLocator = require('./viewlocator');
 var fs = require('fs');
 
-const viewLocators = [fsViewLocator];
-
-const cache = {};
-
-const jsengineconfig = {
-    cache: true,
-    pretty: true,
-    views: ''
-}
-
 async function locateView(filePath = "") {
+    var self = this;
     if (!filePath) return false;
-    for (let i = 0; i < viewLocators.length; i++) {
-        let currentViewLocator = viewLocators[i];
+    for (let i = 0; i < self.viewLocators.length; i++) {
+        let currentViewLocator = self.viewLocators[i];
         if (typeof currentViewLocator.findView === "function") {
             try {
-                let view = await currentViewLocator.findView(filePath.trim(), jsengineconfig);
+                let view = await currentViewLocator.findView(filePath.trim(), self.jsengineconfig);
                 if (typeof view === "string" && view.length) return view; //view found, return it.
             } catch (error) {
                 console.error(error)
@@ -33,9 +24,13 @@ async function locateView(filePath = "") {
 }
 
 function compileTemplate(html = "") {
+    if (typeof html !== "string") {
+        throw new Error("expected html argument as string")
+    }
+    var self = this;
     var re = /<%(.+?)%>/g,
         reExp = /(^( )?(const|let|var|if|for|else|switch|case|break|{|}|;))(.*)?/g,
-        code = 'return (function ($model) { var r=[];\n',
+        code = 'return (function($model) { var r=[];\n',
         cursor = 0,
         match;
     var add = function (line, js) {
@@ -50,7 +45,7 @@ function compileTemplate(html = "") {
     add(html.substr(cursor, html.length - cursor));
     code = (code + 'return r.join(""); })(obj)').replace(/[\r\t\n]/g, ' ');
     try {
-        if (jsengineconfig.pretty) code = beautify_js(code);
+        if (self.jsengineconfig.pretty) code = beautify_js(code);
         var fn = new Function('obj', code);
         return fn;
     }
@@ -61,9 +56,11 @@ function compileTemplate(html = "") {
 
 /* returns the html */
 async function generateTemplate(mainFilePath, filesRendered = []) {
-    let html = await locateView(mainFilePath);
+    var self = this;
+    const fnLocateView = locateView.bind(self);
+    let html = await fnLocateView(mainFilePath);
     if (!html) {
-        throw new Error(`Template '${mainFilePath}' not found at path '${jsengineconfig.view}'`)
+        throw new Error(`Template '${mainFilePath}' not found at path '${self.jsengineconfig.views}'`)
     };
 
     var lines = html.split('\n');
@@ -72,7 +69,7 @@ async function generateTemplate(mainFilePath, filesRendered = []) {
         var layoutDirective = lines[0].trim();
         var layoutFileName = layoutDirective.split(':')[1].replace('-->', '');
         if (filesRendered.includes(layoutFileName)) break; //already rendered
-        var layoutContent = await locateView(layoutFileName);
+        var layoutContent = await fnLocateView(layoutFileName);
         if (!layoutContent) break;
         let childContent = html.replace(layoutDirective, '');
         html = layoutContent.replace('<!--renderbody-->', childContent)
@@ -89,7 +86,7 @@ async function generateTemplate(mainFilePath, filesRendered = []) {
         let line = lines[i].trim();
         if (line.startsWith('<!--renderpartial:')) {
             var partialViewFileName = line.split(':')[1].replace('-->', '').trim();
-            var partialViewContent = await locateView(partialViewFileName);
+            var partialViewContent = await fnLocateView(partialViewFileName);
             if (!partialViewContent) continue;
             filesRendered.push(partialViewFileName);
             html = html.replace(line, partialViewContent);
@@ -132,7 +129,7 @@ async function generateTemplate(mainFilePath, filesRendered = []) {
             html = html.replace(currentSection.line, '');
             continue;
         };
-        const content = await locateView(fileName);
+        const content = await fnLocateView(fileName);
         if (content) {
             filesRendered.push(fileName);
             html = html.replace(currentSection.line, content);
@@ -143,25 +140,26 @@ async function generateTemplate(mainFilePath, filesRendered = []) {
 }
 
 async function getCompiledTemplate(mainFilePath) {
-    if (jsengineconfig.cache && cache.hasOwnProperty(mainFilePath)) {
-        var entry = cache[mainFilePath];
+    var self = this;
+    if (self.jsengineconfig.cache && self.cache.hasOwnProperty(mainFilePath)) {
+        var entry = self.cache[mainFilePath];
         if (typeof entry.fn === "function")
             return entry.fn;
     }
 
     const filesRendered = [mainFilePath];
 
-    let html = await generateTemplate(mainFilePath, filesRendered)
+    let html = await generateTemplate.call(self, mainFilePath, filesRendered)
 
     let compiledTemplate;
     try {
-        compiledTemplate = compileTemplate(html);
+        compiledTemplate = compileTemplate.call(self, html);
     } catch (error) {
         compiledTemplate = () => error.toString();
     }
 
-    if (jsengineconfig.cache) {
-        cache[mainFilePath] = {
+    if (self.jsengineconfig.cache) {
+        self.cache[mainFilePath] = {
             fn: compiledTemplate,
             files: filesRendered
         };
@@ -170,18 +168,26 @@ async function getCompiledTemplate(mainFilePath) {
     return compiledTemplate;
 }
 
-module.exports = function (cfg = {}) {
-    Object.assign(jsengineconfig, cfg);
+function jsengine(cfg = {}) {
+    var self = this;
+    self.viewLocators = [fsViewLocator];
+    self.cache = {};
+    self.jsengineconfig = {
+        cache: true,
+        pretty: true,
+        views: ''
+    }
+
+    Object.assign(self.jsengineconfig, cfg);
 
     let facade;
     return facade = {
-        generateTemplate: generateTemplate,
-
-        //compile direct from string. No viewlocator, no options.
-        compile: function (html) {
-            return compileTemplate(html);
+        generateTemplate: function (mainFilePath) {
+            return generateTemplate.call(self, mainFilePath, []);
         },
-
+        compile: function (htmlString) {
+            return compileTemplate.call(self, htmlString);
+        },
         render: function (rawOrCompiled, options, throwError = false) {
             let compiledTemplate = typeof rawOrCompiled === "function"
                 ? rawOrCompiled
@@ -196,12 +202,10 @@ module.exports = function (cfg = {}) {
             }
             return result;
         },
-
-        //for usage with express.js
         express: function (filePath, options, callback) {
-            return getCompiledTemplate(filePath).then((compiledTemplate) => {
-                let result = facade.render(compiledTemplate, options);
-                if (jsengineconfig.pretty)
+            return getCompiledTemplate.call(self, filePath).then((compiledTemplate) => {
+                let result = facade.render.call(self, compiledTemplate, options);
+                if (self.jsengineconfig.pretty)
                     result = beautify_html(result);
 
                 return callback(null, result);
@@ -210,17 +214,29 @@ module.exports = function (cfg = {}) {
                 return callback(err);
             });
         },
+        expressAsync: async function (filePath, options) {
+            try {
+                let compiledTemplate = await getCompiledTemplate.call(self, filePath, options);
+                let result = facade.render.call(self, compiledTemplate, options);
+                if (self.jsengineconfig.pretty)
+                    result = beautify_html(result);
 
+                return result;
+            } catch (error) {
+                console.error(error);
+                throw error;
+            }
+        },
         addViewLocator: function (viewLocator, index) {
-            viewLocators.splice(index, 0, viewLocator);
-            return facade;
+            self.viewLocators.splice(index, 0, viewLocator);
+            return self;
         },
 
         uncache: function (changedFile) {
-            if (!jsengineconfig.cache) return;
+            if (!self.jsengineconfig.cache) return;
             let keysToRemove = [];
-            for (let key in cache) {
-                let entry = cache[key];
+            for (let key in self.cache) {
+                let entry = self.cache[key];
                 for (let k = 0; k < entry.files.length; k++) {
                     let fileName = entry.files[k];
                     if (changedFile === fileName) {
@@ -231,8 +247,10 @@ module.exports = function (cfg = {}) {
 
             for (let k = 0; k < keysToRemove.length; k++) {
                 let keyToRemove = keysToRemove[k];
-                delete cache[keyToRemove];
+                delete self.cache[keyToRemove];
             }
         }
     }
 }
+
+module.exports = jsengine;

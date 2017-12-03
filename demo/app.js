@@ -5,6 +5,7 @@ var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 var pubsub = require('./pubsub');
+var jsengine = require('../index');
 
 var index = require('./routes/index');
 
@@ -13,16 +14,16 @@ var app = express();
 const views = path.join(__dirname, 'views');
 
 // view engine setup
-var jsengine = require('../index')({
+const htmlEngine = new jsengine({
   cache: false,
   views: views
 });
-app.engine('html', jsengine.express);
+app.engine('html', htmlEngine.express);
 app.set('views', views);
 app.set('view engine', 'html');
 
 pubsub.on('filechanged', function (fileName) {
-  jsengine.uncache(fileName);
+  htmlEngine.uncache(fileName);
 })
 
 // uncomment after placing your favicon in /public
