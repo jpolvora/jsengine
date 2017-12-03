@@ -1,10 +1,54 @@
 "use strict";
 var beautify_js = require('js-beautify'); // also available under "js" export
-var beautify_css = require('js-beautify').css;
+//var beautify_css = require('js-beautify').css;
 var beautify_html = require('js-beautify').html;
 
 var fsViewLocator = require('./viewlocator');
 var fs = require('fs');
+
+
+function generateCode(templateStr = "", pretty = false) {
+    if (typeof templateStr !== "string") {
+        throw new Error("expected string as argument")
+    }
+    var self = this;
+    var re = /<%(.+?)%>/g,
+        reExp = /(^( )?(const|let|var|if|for|else|switch|case|break|{|}|;))(.*)?/g,
+        code = 'return (function($model) { var r=[];\n',
+        cursor = 0,
+        match;
+    var add = function (line, js) {
+        js ? (code += line.match(reExp) ? line + '\n' : 'r.push(' + line + ');\n') :
+            (code += line != '' ? 'r.push("' + line.replace(/"/g, '\\"') + '");\n' : '');
+        return add;
+    }
+    while (match = re.exec(templateStr)) {
+        add(templateStr.slice(cursor, match.index))(match[1], true);
+        cursor = match.index + match[0].length;
+    }
+    add(templateStr.substr(cursor, templateStr.length - cursor));
+    code = (code + 'return r.join(""); })(obj)').replace(/[\r\t\n]/g, ' ');
+    if (self.jsengineconfig.prettyjs || pretty) code = beautify_js(code);
+    return code;
+}
+
+function createFunction(code) {
+    try {
+        var fn = new Function('obj', code);
+        return fn;
+    }
+    catch (err) {
+        throw new Error("Error compiling template: '" + err.message + "'\n in \n\nCode:\n" + code);
+    }
+}
+
+function compileTemplate(templateString = "") {
+    var self = this;
+    const code = generateCode.call(self, templateString);
+    const fn = createFunction.call(self, code);
+    return fn;
+}
+
 
 async function locateView(filePath = "") {
     var self = this;
@@ -20,37 +64,6 @@ async function locateView(filePath = "") {
                 continue;
             }
         }
-    }
-}
-
-function compileTemplate(html = "") {
-    if (typeof html !== "string") {
-        throw new Error("expected html argument as string")
-    }
-    var self = this;
-    var re = /<%(.+?)%>/g,
-        reExp = /(^( )?(const|let|var|if|for|else|switch|case|break|{|}|;))(.*)?/g,
-        code = 'return (function($model) { var r=[];\n',
-        cursor = 0,
-        match;
-    var add = function (line, js) {
-        js ? (code += line.match(reExp) ? line + '\n' : 'r.push(' + line + ');\n') :
-            (code += line != '' ? 'r.push("' + line.replace(/"/g, '\\"') + '");\n' : '');
-        return add;
-    }
-    while (match = re.exec(html)) {
-        add(html.slice(cursor, match.index))(match[1], true);
-        cursor = match.index + match[0].length;
-    }
-    add(html.substr(cursor, html.length - cursor));
-    code = (code + 'return r.join(""); })(obj)').replace(/[\r\t\n]/g, ' ');
-    try {
-        if (self.jsengineconfig.pretty) code = beautify_js(code);
-        var fn = new Function('obj', code);
-        return fn;
-    }
-    catch (err) {
-        throw new Error("Error compiling template: '" + err.message + "'\n in \n\nCode:\n" + code);
     }
 }
 
@@ -175,6 +188,7 @@ function jsengine(cfg = {}) {
     self.jsengineconfig = {
         cache: true,
         pretty: true,
+        prettyjs: false,
         views: ''
     }
 
@@ -184,6 +198,9 @@ function jsengine(cfg = {}) {
     return facade = {
         generateTemplate: function (mainFilePath) {
             return generateTemplate.call(self, mainFilePath, []);
+        },
+        generateCode: function (templateString) {
+            return generateCode.call(self, templateString, true);
         },
         compile: function (htmlString) {
             return compileTemplate.call(self, htmlString);
