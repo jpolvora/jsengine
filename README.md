@@ -1,5 +1,8 @@
 # jsengine
-The Faster & Super lightweight javascript template engine for Node.
+The simple, faster and super lightweight Javascript template engine for Node.
+
+# DOCUMENTATION OUTDATED. SORRY. I WILL UPDATE IT IN A FEW DAYS.
+
 
 ### Installation
 ```
