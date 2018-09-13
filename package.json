@@ -30,8 +30,13 @@
   },
   "homepage": "https://github.com/jpolvora/jsengine#readme",
   "dependencies": {
-    "fs": "0.0.1-security",
-    "js-beautify": "^1.7.4",
-    "path": "^0.12.7"
+    "js-beautify": "1.8.4"
+  },
+  "standard": {
+    "ignore": [
+      "**/out/",
+      "/lib/**",
+      "*.html.js"
+    ]
   }
 }
