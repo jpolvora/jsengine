@@ -24,6 +24,7 @@
   },
   "homepage": "https://github.com/jpolvora/jsengine#readme",
   "dependencies": {
+    "html-minifier": "3.5.20",
     "js-beautify": "1.8.4"
   },
   "standard": {
