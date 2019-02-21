@@ -82,9 +82,9 @@ function wrapIntoCommonJs (beauty, code, functionName, callback) {
   }
 }
 
-function saveAndRequire (beauty, code, fileName) {
+function saveAndRequire (beauty, code, fileName, extension) {
   const directory = path.dirname(fileName);
-  const newFileName = path.basename(fileName, '.html');
+  const newFileName = path.basename(fileName, `.${extension}`);
   const newPath = path.join(directory, newFileName) + '.html.js';
   const functionName = '_' + newFileName;
 
@@ -138,11 +138,11 @@ module.exports = {
     });
   },
 
-  compileAndSave: (beauty, templateString, path) => {
+  compileAndSave: (beauty, templateString, path, extension) => {
     return new Promise((resolve, reject) => {
       return compileTemplate(templateString, (err, code) => {
         if (err) return reject(err);
-        return saveAndRequire(beauty, code, path)
+        return saveAndRequire(beauty, code, path, extension)
           .then((fn) => {
             return resolve(fn);
           })

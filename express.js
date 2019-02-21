@@ -142,7 +142,7 @@ async function getOrCreateCompiledTemplateFn (options, mainFilePath) {
   let compiledTemplate = null;
 
   if (self.options.write) {
-    compiledTemplate = await engine.compileAndSave(self.options.beautify, html, mainFilePath);
+    compiledTemplate = await engine.compileAndSave(self.options.beautify, html, mainFilePath, self.options.extension);
   } else {
     const minifyOptions = {
       collapseBooleanAttributes: true,
@@ -192,7 +192,8 @@ class JsEngine {
       isProduction: isProduction,
       beautify: !isProduction,
       write: !isProduction,
-      minify: isProduction
+      minify: isProduction,
+      extension: 'html'
     });
   }
 
