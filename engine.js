@@ -85,7 +85,7 @@ function wrapIntoCommonJs (beauty, code, functionName, callback) {
 function saveAndRequire (beauty, code, fileName, extension) {
   const directory = path.dirname(fileName);
   const newFileName = path.basename(fileName, `.${extension}`);
-  const newPath = path.join(directory, newFileName) + '.html.js';
+  const newPath = path.join(directory, newFileName) + `.${extension}.js`;
   const functionName = '_' + newFileName;
 
   return new Promise((resolve, reject) => {
