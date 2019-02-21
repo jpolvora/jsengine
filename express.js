@@ -188,13 +188,13 @@ class JsEngine {
   constructor (options = {}) {
     const isProduction = (process.env.NODE_ENV || 'development') !== 'development';
     this.viewLocators = [defaultViewLocator];
-    this.options = Object.assign(options, {
+    this.options = Object.assign({
       isProduction: isProduction,
       beautify: !isProduction,
       write: !isProduction,
       minify: isProduction,
       extension: 'html'
-    });
+    }, options);
   }
 
   install () {
