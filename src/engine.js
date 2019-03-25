@@ -1,19 +1,21 @@
-/** @format */
-
 const fs = require('fs');
 const path = require('path');
 const beautify_js = require('js-beautify').js;
-const JsEngineError = require('./JsEngineError');
 const debug = require('debug')('jsengine');
 
 const $helpers = require('./helpers');
 
-function requireNoCache (filePath) {
+function requireNoCache(filePath) {
   delete require.cache[require.resolve(filePath)];
-  return require(filePath);
+  try {
+    return require(filePath);
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
 }
 
-function generateCode (templateStr, callback) {
+function generateCode(templateStr, callback) {
   try {
     var re = /<%(.+?)%>/g,
       reExp = /(^( )?(this|var|if|for|else|switch|case|break|{|}|;))(.*)?/g,
@@ -21,7 +23,7 @@ function generateCode (templateStr, callback) {
       cursor = 0,
       match;
 
-    function add (line, js) {
+    function add(line, js) {
       js
         ? (code += line.match(reExp) ? line + '\n' : 'r.push(' + line + ');\n')
         : (code += line != '' ? 'r.push("' + line.replace(/"/g, '\\"') + '");\n' : '');
@@ -43,7 +45,7 @@ function generateCode (templateStr, callback) {
   }
 }
 
-function createFunction (code, callback) {
+function createFunction(code, callback) {
   try {
     var result = function () {
       var self = this;
@@ -58,22 +60,21 @@ function createFunction (code, callback) {
   }
 }
 
-function compileTemplate (templateString, callback) {
+function compileTemplate(templateString, callback) {
   return generateCode(templateString, (err, code) => {
     if (err) return callback(err);
     return callback(null, code);
   });
 }
 
-function wrapIntoCommonJs (beauty, code, functionName, callback) {
+function wrapIntoCommonJs(beauty, code, functionName, callback) {
   try {
     functionName = functionName.trim().replace('-', '_');
+    let resultingCode = `module.exports = function ${functionName}($helpers) { ${code} }`;
     if (beauty) {
-      code = beautify_js(`module.exports = function ${functionName}($helpers) { ${code} }`);
-    } else {
-      code = `module.exports = function ${functionName}($helpers) { ${code} }`;
+      resultingCode = beautify_js(resultingCode);
     }
-    return callback(null, code);
+    return callback(null, resultingCode);
   } catch (error) {
     const msg = process.env.NODE_ENV != 'production' ? error.stack : error.toString();
     const newError = new Error(msg);
@@ -82,7 +83,7 @@ function wrapIntoCommonJs (beauty, code, functionName, callback) {
   }
 }
 
-function saveAndRequire (beauty, code, fileName, extension) {
+function saveAndRequire(beauty, code, fileName, extension) {
   const directory = path.dirname(fileName);
   const newFileName = path.basename(fileName, `.${extension}`);
   const newPath = path.join(directory, newFileName) + `.${extension}.js`;
@@ -91,36 +92,29 @@ function saveAndRequire (beauty, code, fileName, extension) {
   return new Promise((resolve, reject) => {
     return wrapIntoCommonJs(beauty, code, functionName, (error, text) => {
       if (error) {
-        const msg = process.env.NODE_ENV != 'production' ? error.stack : error.toString();
+        const msg = process.env.NODE_ENV != 'production' ? error && error.stack : error.toString();
         const newError = new Error(msg);
         newError.name = 'wrapIntoCommonJsError';
         return reject(newError);
       }
 
       if (!text || text.length == 0) return reject(new Error('conteúdo do template vazio!'));
-      return fs.writeFile(newPath, text, (err) => {
-        if (err) {
-          const msg = process.env.NODE_ENV != 'production' ? error.stack : error.toString();
-          const newError = new Error(msg);
-          newError.name = 'WriteFileError';
-          return reject(newError);
-        }
+      try {
+        fs.writeFileSync(newPath, text, { flag: 'w+' });
         debug('Arquivo escrito com sucesso: ', newPath);
-        try {
-          const moduleExport = requireNoCache(newPath);
-          if (typeof moduleExport !== 'function') throw new Error('Não recebeu uma função!');
-          var result = function () {
-            var self = this;
-            return moduleExport.call(self, $helpers.call(self));
-          };
-          return resolve(result);
-        } catch (error) {
-          const msg = process.env.NODE_ENV != 'production' ? error.stack : error.toString();
-          const newError = new Error(msg);
-          newError.name = 'RequireModuleError';
-          return reject(newError);
-        }
-      });
+        const moduleExport = requireNoCache(newPath);
+        if (typeof moduleExport !== 'function') throw new Error('Não recebeu uma função!');
+        var result = function () {
+          var self = this;
+          return moduleExport.call(self, $helpers.call(self));
+        };
+        return resolve(result);
+      } catch (error) {
+        const msg = process.env.NODE_ENV != 'production' ? error.stack : error.toString();
+        const newError = new Error(msg);
+        newError.name = 'RequireModuleError';
+        return reject(newError);
+      }
     });
   });
 }
@@ -142,13 +136,7 @@ module.exports = {
     return new Promise((resolve, reject) => {
       return compileTemplate(templateString, (err, code) => {
         if (err) return reject(err);
-        return saveAndRequire(beauty, code, path, extension)
-          .then((fn) => {
-            return resolve(fn);
-          })
-          .catch((err) => {
-            return reject(err);
-          });
+        return saveAndRequire(beauty, code, path, extension).then(resolve).catch(reject);
       });
     });
   }

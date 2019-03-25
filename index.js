@@ -1,4 +1,2 @@
-/** @format */
-
-module.exports = require('./express');
-module.exports.engine = require('./engine');
+module.exports = require('./src/express');
+module.exports.engine = require('./src/engine');

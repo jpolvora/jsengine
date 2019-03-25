@@ -1,14 +1,11 @@
-/** @format */
-
 'use strict';
 const engine = require('./engine');
 const defaultViewLocator = require('./viewlocator');
 const minify = require('html-minifier').minify;
 const beautify_html = require('js-beautify').html;
-const JsEngineError = require('./JsEngineError');
 const debug = require('debug')('jsengine');
 
-async function locateView (filePath, viewsPath) {
+async function locateView(filePath, viewsPath) {
   var self = this;
   if (!filePath) return false;
   for (let i = 0; i < self.viewLocators.length; i++) {
@@ -27,11 +24,11 @@ async function locateView (filePath, viewsPath) {
 }
 
 /* returns the html */
-async function generateTemplate (mainFilePath, root, filesRendered = []) {
+async function generateTemplate(mainFilePath, root, filesRendered = []) {
   const fnLocateView = locateView.bind(this);
   let html = await fnLocateView(mainFilePath, root);
   if (!html) {
-    throw new JsEngineError(`File '${mainFilePath}' not found`);
+    throw new Error(`File '${mainFilePath}' not found`);
   }
   filesRendered.push(mainFilePath);
 
@@ -53,7 +50,7 @@ async function generateTemplate (mainFilePath, root, filesRendered = []) {
   var definedSections = [],
     implementedSections = [];
 
-    // layout structure ready to do replacements
+  // layout structure ready to do replacements
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i].trim();
     if (line.startsWith('<!--renderpartial:')) {
@@ -122,7 +119,7 @@ async function generateTemplate (mainFilePath, root, filesRendered = []) {
   return html;
 }
 
-function stripHtmlComments (html) {
+function stripHtmlComments(html) {
   if (typeof html !== 'string') {
     throw new TypeError('strip-html-comments expected a string');
   }
@@ -130,7 +127,7 @@ function stripHtmlComments (html) {
   return html.replace(/<!--[\s\S]*?(?:-->)/g, '');
 }
 
-async function getOrCreateCompiledTemplateFn (options, mainFilePath) {
+async function getOrCreateCompiledTemplateFn(options, mainFilePath) {
   var self = this;
   var root = options.settings.views;
 
@@ -160,7 +157,7 @@ async function getOrCreateCompiledTemplateFn (options, mainFilePath) {
   return compiledTemplate;
 }
 
-function render (filePath, options, callback) {
+function render(filePath, options, callback) {
   var self = this;
   return getOrCreateCompiledTemplateFn
     .call(self, options, filePath)
@@ -185,7 +182,7 @@ function render (filePath, options, callback) {
 }
 
 class JsEngine {
-  constructor (options = {}) {
+  constructor(options = {}) {
     const isProduction = (process.env.NODE_ENV || 'development') !== 'development';
     this.viewLocators = [defaultViewLocator];
     this.options = Object.assign({
@@ -195,15 +192,17 @@ class JsEngine {
       minify: isProduction,
       extension: 'html'
     }, options);
+
+    this.express = this.install.call(this);
   }
 
-  install () {
+  install() {
     var self = this;
-    if (self instanceof JsEngine) return render.bind(this);
+    if (self instanceof JsEngine) return render.bind(self);
     throw new Error('context must be of type JsEngine');
   }
 
-  addViewLocator (viewLocator, index) {
+  addViewLocator(viewLocator, index) {
     this.viewLocators.splice(index, 0, viewLocator);
     return this;
   }
