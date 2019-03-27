@@ -15,7 +15,6 @@ async function locateView(filePath, viewsPath) {
         let view = await currentViewLocator.findView(filePath.trim(), viewsPath);
         if (typeof view === 'string' && view.length) return view; // view found, return it.
       } catch (error) {
-        console.error(error);
         debug(error);
         continue;
       }

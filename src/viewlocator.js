@@ -11,12 +11,12 @@ module.exports = {
       }
       if (fs.existsSync(fullPath)) {
         fs.readFile(fullPath, (err, contents) => {
-          if (err) return resolve(false);
+          if (err) return reject(err);
           else return resolve(contents.toString());
         });
-      } else {
-        return resolve(false);
       }
+
+      return resolve(false);
     });
   }
 };

@@ -4,8 +4,15 @@
   "description": "A Javascript Template Engine for Node.js",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node demo\\server.js"
   },
+  "files": [
+    "index.js",
+    "src/engine.js",
+    "src/express.js",
+    "src/viewlocator.js"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jpolvora/jsengine.git"
@@ -26,18 +33,11 @@
   },
   "homepage": "https://github.com/jpolvora/jsengine#readme",
   "dependencies": {
-    "debug": "4.1.1",
-    "html-minifier": "3.5.21",
-    "js-beautify": "1.9.0"
-  },
-  "standard": {
-    "ignore": [
-      "**/out/",
-      "/lib/**",
-      "*.html.js"
-    ]
+    "debug": "^4.1.1",
+    "html-minifier": "^3.5.21",
+    "js-beautify": "^1.9.0"
   },
   "devDependencies": {
-    "express": "4.16.4"
+    "express": "^4.16.4"
   }
 }

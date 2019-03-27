@@ -6,20 +6,6 @@ process.on('uncaughtException', function (err) {
   console.error("Uncaught", err);
 });
 
-async function listen(app) {
-  return new Promise((resolve, reject) => {
-    try {
-      const port = process.env.PORT || 3030;
-      const server = app.listen(port, () => {
-        console.log('listening on port ' + port)
-        return resolve(server);
-      });
-    } catch (err) {
-      return reject(err);
-    }
-  });
-}
-
 async function main() {
   const app = express();
 
@@ -34,6 +20,11 @@ async function main() {
   app.engine('ejs', jsengine.express);
   app.set('views', viewsPath);
   app.set('view engine', 'ejs');
+
+  app.use((req, res, next) => {
+    console.log(`request: ${req.method} - ${req.url}`);
+    return next();
+  });
 
   const routes = require('./routes');
   routes(app);
@@ -53,8 +44,21 @@ async function main() {
     return next(err);
   });
   const server = await listen(app);
-  console.log(server);
+  console.log('listening on port ' + server._port);
 }
 
+async function listen(app) {
+  return new Promise((resolve, reject) => {
+    try {
+      const port = process.env.PORT || 3030;
+      const server = app.listen(port, () => {
+        server._port = port;
+        return resolve(server);
+      });
+    } catch (err) {
+      return reject(err);
+    }
+  });
+}
 
 main();
