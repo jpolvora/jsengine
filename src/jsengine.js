@@ -22,9 +22,8 @@ class JsEngine {
 
     this.options = Object.assign({
       cache: !isDevelopment,
-
-      beautify: !!isDevelopment,
-      minify: !isDevelopment,
+      beautify: false,
+      minify: false,
       viewLocators: [],
       views: path.join(path.dirname(process.mainModule.filename), 'views')
     }, opts);

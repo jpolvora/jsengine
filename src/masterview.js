@@ -11,12 +11,12 @@ class MasterView extends View {
     return this.body;
   }
 
-  renderSection(name) {
+  renderSection(name, def) {
     if (this.sections.hasOwnProperty(name)) {
       const section = this.sections[name];
       return section;
     }
-    return "";
+    return def || "";
   }
 }
 

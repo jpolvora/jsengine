@@ -10,9 +10,9 @@ class View {
     this.fullPath = fullPath;
   }
 
-  loadTemplate(fullFilePath, cache) {
+  loadTemplate(fullFilePath) {
     try {
-      if (!cache) delete require.cache[require.resolve(fullFilePath)];
+      if (!this.cache) delete require.cache[require.resolve(fullFilePath)];
       const fn = require(fullFilePath);
       return fn;
     } catch (error) {
@@ -20,9 +20,17 @@ class View {
     }
   }
 
+  html(strings, ...values) {
+    let str = '';
+    strings.forEach((string, i) => {
+      str += string + (values[i] || '');
+    });
+    return str;
+  }
+
   execute() {
-    const entryPoint = this.loadTemplate(this.fullPath, this.cache);
-    const result = entryPoint.call(this);
+    const entryPoint = this.loadTemplate(this.fullPath);
+    const result = entryPoint.call(this, this.html);
     return result;
   }
 
@@ -33,6 +41,25 @@ class View {
 
   renderPartial(fileName) {
     return new View(fileName, this.views, this.cache, this.model).execute();
+  }
+
+  repeat(count, callback) {
+    let str = '';
+    for (let i = 0; i < count; i++) {
+      str += callback(i) || "0";
+    }
+
+    return str;
+  }
+
+  forEach(iterable, callback) {
+    let str = '';
+    for (let i = 0; i < iterable.length; i++) {
+      const element = iterable[i];
+      str += callback(element, i || 0) || "";
+    }
+
+    return str;
   }
 }
 
