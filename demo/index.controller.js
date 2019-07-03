@@ -2,7 +2,8 @@ module.exports = {
   get: function (req, res) {
     return res.render('index', {
       message: 'hello from app',
-      route: req.originalUrl
+      url: req.originalUrl,
+      repeat: 50
     });
   }
-}
+};

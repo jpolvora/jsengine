@@ -3,7 +3,7 @@ const JSEngine = require('../index');
 const path = require('path');
 
 process.on('uncaughtException', function (err) {
-  console.error("Uncaught", err);
+  console.error('Uncaught', err);
 });
 
 async function main() {
@@ -12,14 +12,14 @@ async function main() {
   const viewsPath = path.join(__dirname, 'views');
 
   const jsengine = new JSEngine({
-    write: true,
-    views: viewsPath,
-    extension: 'ejs'
+    beautify: true,
+    minify: true,
+    viewsPath
   });
 
-  app.engine('ejs', jsengine.express);
+  app.engine('js', jsengine.render.bind(jsengine));
   app.set('views', viewsPath);
-  app.set('view engine', 'ejs');
+  app.set('view engine', 'js');
 
   app.use((req, res, next) => {
     console.log(`request: ${req.method} - ${req.url}`);
@@ -38,7 +38,7 @@ async function main() {
     res.status(statusCode);
 
     if (req.xhr) {
-      return res.json({ success: false, message: "error" });
+      return res.json({ success: false, message: 'error' });
     }
 
     return next(err);
