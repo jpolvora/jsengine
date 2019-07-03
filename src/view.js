@@ -1,13 +1,19 @@
-const path = require('path');
+const path = require('path'),
+  util = require('util'),
+  helpers = require('./helpers')
+
+const emptyfn = () => '';
+const createError = (...args) => new Error(util.inspect(args))
 
 class View {
   constructor(filePath, views, cache, model) {
     this.views = views;
     this.cache = cache;
     this.model = model;
-
+    this.loaded = false;
     const fullPath = path.isAbsolute(filePath) ? filePath : path.join(views, filePath);
     this.fullPath = fullPath;
+    this.helpers = helpers;
   }
 
   loadTemplate(fullFilePath) {
@@ -16,7 +22,7 @@ class View {
       const fn = require(fullFilePath);
       return fn;
     } catch (error) {
-      throw new Error("Error loading file: " + fullFilePath + "\n" + error);
+      throw createError('Error requiring file', fullFilePath, error.stack);
     }
   }
 
@@ -28,19 +34,32 @@ class View {
     return str;
   }
 
-  execute() {
-    const entryPoint = this.loadTemplate(this.fullPath);
-    const result = entryPoint.call(this, this.html);
-    return result;
+  execute(throws) {
+    try {
+      const fn = this.loadTemplate(this.fullPath);
+      this.loaded = true;
+      if (typeof fn === "function") {
+        const result = fn.call(this, this.html);
+        return result;
+      }
+      return fn;
+    } catch (error) {
+      if (throws) throw createError('error executing view', error);
+      return "";
+    }
   }
 
   master(layout, body, sections) {
     const MasterView = require('./masterview');
-    return new MasterView(layout, this.views, this.cache, this.model, body, sections).execute();
+    const master = new MasterView(layout, this.views, this.cache, this.model, body, sections);
+    const result = master.execute(true);
+    return result;
   }
 
   renderPartial(fileName) {
-    return new View(fileName, this.views, this.cache, this.model).execute();
+    const view = new View(fileName, this.views, this.cache, this.model)
+    const result = view.execute(false);
+    return result;
   }
 
   repeat(count, callback) {
@@ -58,7 +77,6 @@ class View {
       const element = iterable[i];
       str += callback(element, i || 0) || "";
     }
-
     return str;
   }
 }

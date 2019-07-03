@@ -3,8 +3,8 @@ const View = require('./view');
 class MasterView extends View {
   constructor(filePath, views, cache, model, body, sections) {
     super(filePath, views, cache, model);
-    this.body = body;
-    this.sections = sections;
+    this.body = body || "";
+    this.sections = sections || {}
   }
 
   renderBody() {

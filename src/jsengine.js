@@ -34,16 +34,16 @@ class JsEngine {
   async render(filePath, model, callback) {
     logger("Start rendering: " + filePath);
 
-
     try {
       const view = new View(filePath, this.options.views, this.options.cache, model);
-      let html = view.execute();
-
-      if (this.options.beautify) {
-        html = beautify_html(html);
-      }
-      if (this.options.minify) {
-        html = minify(html, minifyOptions);
+      let html = view.execute(true);
+      if (html.length > 0) {
+        if (this.options.beautify) {
+          html = beautify_html(html);
+        }
+        if (this.options.minify) {
+          html = minify(html, minifyOptions);
+        }
       }
       return callback(null, html);
     } catch (error) {
