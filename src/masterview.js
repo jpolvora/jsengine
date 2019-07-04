@@ -12,6 +12,7 @@ class MasterView extends View {
   }
 
   renderSection(name, def) {
+    if (!this.sections) return '';
     if (this.sections.hasOwnProperty(name)) {
       const section = this.sections[name];
       return section;

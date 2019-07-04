@@ -14,6 +14,8 @@ class View {
     const fullPath = path.isAbsolute(filePath) ? filePath : path.join(views, filePath);
     this.fullPath = fullPath;
     this.helpers = helpers;
+
+    this.binded = this.binder.bind(this);
   }
 
   loadTemplate(fullFilePath) {
@@ -28,10 +30,15 @@ class View {
 
   html(strings, ...values) {
     let str = '';
-    strings.forEach((string, i) => {
-      str += string + (values[i] || '');
-    });
+    for (let i = 0; i < strings.length; i++) {
+      str += strings[i] + (values[i] || '');
+    }
+
     return str;
+  }
+
+  binder(fn) {
+    return fn.bind(this);
   }
 
   execute(throws) {
@@ -39,7 +46,15 @@ class View {
       const fn = this.loadTemplate(this.fullPath);
       this.loaded = true;
       if (typeof fn === "function") {
-        const result = fn.call(this, this.html);
+        const result = fn.call(this, {
+          renderPartial: this.renderPartial.bind(this),
+          master: this.master.bind(this),
+          html: this.html.bind(this),
+          helpers: this.helpers,
+          model: this.model,
+          renderSection: this.renderSection && this.renderSection.bind(this) || emptyfn,
+          renderBody: this.renderBody && this.renderBody.bind(this) || emptyfn,
+        });
         return result;
       }
       return fn;
