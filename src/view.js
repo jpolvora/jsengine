@@ -52,10 +52,9 @@ class View {
     const methods = {
       renderFile: Object.freeze(this.createRenderFile().bind(this)),
       renderSection: Object.freeze(this.createRenderSection().bind(this)),
-      renderBody: Object.freeze(this.createRenderBody().bind(this))
+      renderBody: Object.freeze(this.createRenderBody().bind(this)) //currying
     }
 
-    this.master = this.createMaster().bind(this);
     const html = htmlTag.bind(this);
     const helpers = options.helpers.call(this, html);
     this.viewParameters = Object.freeze(Object.assign(html, {
@@ -63,6 +62,7 @@ class View {
       ...methods
     }, {
         model: this.model,
+        $: this.model,
         html: html
       }));
 
@@ -72,7 +72,7 @@ class View {
   renderWrapper(render) {
     const result = render.call(this.model, this.viewParameters);
     logger('render executed', this.fullPath);
-    return result;
+    return `<!--startOf: ${this.name} --> \n${result}\n<!-- endOf:${this.name}-->`;
   }
 
   execute() {
@@ -80,27 +80,24 @@ class View {
       logger('executing: ' + this.fullPath, this.name);
       const viewModule = nodeRequire(this.fullPath, !this.options.cache);
       if (typeof viewModule !== "function") throw createError('module must exports a default function: ' + this.fullPath)
-
       const template = viewModule.call(null, this.viewParameters);
       if (typeof template === "string") return this.renderWrapper(() => template);
       if (typeof template === "function") return this.renderWrapper(template);
       if (typeof template.layout === "string") return this.master(template);
       if (typeof template.render === "function") return this.renderWrapper(template.render);
+
+      throw createError("could not identify how to render template:" + this.fullPath);
     } catch (error) {
       logger(error);
       throw createError('error executing view: ' + this.fullPath, error);
     }
   }
 
-  createMaster() {
-    const self = this;
-    return ({layout, render, sections}) => {
-      if (self !== this) throw createError("self!=this")
-      const masterView = new View(layout, self.model, 'layout', {...self.options}, render.bind(self), sections, self.depth + 1);
-      const result = masterView.execute();
-      if (!masterView.renderBodyExecuted) throw new Error('renderBody not executed on layout view: ' + layout)
-      return result;
-    }
+  master({layout, render, sections}) {
+    const masterView = new View(layout, this.model, 'layout', {...this.options}, this.renderWrapper.bind(this, render), sections, this.depth + 1);
+    const result = masterView.execute();
+    if (!masterView.renderBodyExecuted) throw new Error('renderBody not executed on layout view: ' + layout)
+    return result;
   }
 
   createRenderFile() {
@@ -113,7 +110,6 @@ class View {
     }
   }
 
-  //this method must be curriered before use
   createRenderBody() {
     const self = this;
     return () => {

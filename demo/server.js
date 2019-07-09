@@ -13,7 +13,7 @@ async function main() {
 
   const jsengine = new JSEngine({
     beautify: true,
-    minify: true,
+    // minify: true,
     viewsPath
   });
 
