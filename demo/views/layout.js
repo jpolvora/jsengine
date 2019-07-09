@@ -1,14 +1,14 @@
-module.exports = {
+module.exports = (html) => ({
   layout: 'gran_layout.js',
   sections: {},
-  body: ({html, renderSection, renderFile, renderBody}) => html`
+  render: () => html`
   <head>
-    ${renderSection('styles')}
+    ${html.renderSection('styles')}
   </head>
   
   <body>
-    ${renderFile('menu.js')}
-    ${renderBody()}
-    ${renderSection('scripts')}
+    ${html.renderFile('menu.js')}
+    ${html.renderBody()}
+    ${html.renderSection('scripts')}
   </body>`
-}
+})

@@ -1,5 +1,8 @@
-module.exports.body = ({html, renderBody}) => html`
+module.exports = (html) => ({
+  render: () => html`
 <html lang="pt-BR">
-${renderBody()}
+${html.renderBody()}
 
 </html>`
+
+})

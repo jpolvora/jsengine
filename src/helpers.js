@@ -55,12 +55,12 @@ function forEach(iterable, callback) {
   return str;
 }
 
-function insertScript(src) {
-  return html`<script type="text/javascript" src="${src}"></script>`;
+function insertScript(html, src) {
+  return `<script type="text/javascript" src="${src}"></script>`;
 }
 
-function insertStyle(href) {
-  return html`<link rel="stylesheet" href="${href}" />`;
+function insertStyle(html, href) {
+  return `<link rel="stylesheet" href="${href}" />`;
 }
 
 async function concatAndWrite(fileName, files) {
@@ -85,14 +85,14 @@ async function createBundle(path, refresh = false, files = []) {
 }
 
 
-module.exports = {
+module.exports = (html) => ({
   moment,
   formatMoney,
   formatNumber,
   formatPercent,
   forEach,
   repeat,
-  insertScript,
-  insertStyle,
+  insertScript: insertScript.bind(null, html),
+  insertStyle: insertStyle.bind(null, html),
   createBundle
-};
+})
