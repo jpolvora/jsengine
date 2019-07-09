@@ -1,16 +1,19 @@
 /** @format */
 
-const fs = require('fs'),
-  path = require('path'),
-  util = require('util'),
-  readFile = util.promisify(fs.readFile)
+const fs = require('fs');
+
+const path = require('path');
+
+const util = require('util');
+
+const readFile = util.promisify(fs.readFile);
 
 class FsViewLocator {
-  constructor(logger, viewsPath) {
+  constructor (logger, viewsPath) {
     this.logger = logger;
   }
 
-  async findView(fullPath) {
+  async findView (fullPath) {
     try {
       const contents = await readFile(fullPath);
       return contents.toString();

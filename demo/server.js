@@ -2,7 +2,7 @@ const express = require('express');
 const JSEngine = require('../index');
 const path = require('path');
 
-process.on('uncaughtException', function (err) {
+process.on('uncaughtException', function(err) {
   console.error('Uncaught', err);
 });
 
@@ -38,13 +38,13 @@ async function main() {
     res.status(statusCode);
 
     if (req.xhr) {
-      return res.json({ success: false, message: 'error' });
+      return res.json({success: false, message: 'error'});
     }
 
     return next(err);
   });
   const server = await listen(app);
-  console.log('listening on port ' + server._port);
+  console.debug('listening on port ' + server._port);
 }
 
 async function listen(app) {

@@ -1,33 +1,98 @@
-const moment = require('moment');
+const moment = require('moment'),
+  path = require('path'),
+  fs = require('fs'),
+  util = require('util'),
+  stat = util.promisify(fs.stat),
+  write = util.promisify(fs.writeFile),
+  read = util.promisify(fs.readFile);
 
 function roundDown(number, decimals = 2) {
   return (Math.floor(number * Math.pow(10, decimals)) / Math.pow(10, decimals));
 }
 
-const fMoney = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "BRL",
+const fMoney = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
   minimumFractionDigits: 2,
   maximumFractionDigits: 2
 });
 
-const formatNumber = new Intl.NumberFormat("pt-BR");
+const fNumber = new Intl.NumberFormat('pt-BR');
 
-const formatPercent = new Intl.NumberFormat("pt-BR", {
-  style: "percent",
+const fPercent = new Intl.NumberFormat('pt-BR', {
+  style: 'percent',
   minimumFractionDigits: 2,
   maximumFractionDigits: 2
 });
+
+function formatMoney(val) {
+  return fMoney.format(roundDown(val, 2));
+}
+
+function formatNumber(val) {
+  return fMoney.format(val);
+}
+
+function formatPercent(val) {
+  return fPercent.format(roundDown(val, 3));
+}
+
+function repeat(count, callback) {
+  let str = '';
+  for (let i = 0; i < count; i++) {
+    str += callback(i) || '0';
+  }
+
+  return str;
+}
+
+function forEach(iterable, callback) {
+  let str = '';
+  for (let i = 0; i < iterable.length; i++) {
+    const element = iterable[i];
+    str += callback(element, i || 0) || '';
+  }
+  return str;
+}
+
+function insertScript(src) {
+  return html`<script type="text/javascript" src="${src}"></script>`;
+}
+
+function insertStyle(href) {
+  return html`<link rel="stylesheet" href="${href}" />`;
+}
+
+async function concatAndWrite(fileName, files) {
+  const buffer = [];
+  const dir = path.dirname(fileName);
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const fullPath = path.combine(dir, file);
+    const lines = await read(file).split('\n');
+    buffer.push(...lines);
+  }
+
+  await write(fileName, buffer.toString());
+}
+
+async function createBundle(path, refresh = false, files = []) {
+  const s = await stat(path);
+  if (s.error || refresh) {
+    await concatAndWrite(fileName, files);
+  }
+}
+
 
 module.exports = {
   moment,
-  formatMoney: function (val) {
-    return fMoney.format(roundDown(val, 2));
-  },
-  formatNumber: function (val) {
-    return formatNumber.format(val);
-  },
-  formatPercent: function (val) {
-    return formatPercent.format(val);
-  }
-}
+  formatMoney,
+  formatNumber,
+  formatPercent,
+  forEach,
+  repeat,
+  insertScript,
+  insertStyle,
+  createBundle
+};

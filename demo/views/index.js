@@ -1,23 +1,13 @@
-module.exports = function (html) {
-
-  return this.master('layout.js', html`
-  ${Array(100).fill().map((_, i) => html`
-  <h1 class="hero">hello world</h1>
-  <p>${this.model.message}</p>
-  <pre>${this.model.url}</pre>
-  <span>${i}</span>
-  `).join('')}
-  <ul>
-    ${this.repeat(100, (i) => html`<li>${i}</li>`)}
-  </ul>
-  <ul>
-    ${this.forEach(this.model.message, (el, i) => html`<li>${i}=${el}</li>`)}
-  </ul>
-    `, {
-      scripts: html`
+module.exports = {
+  layout: 'layout.js',
+  sections: {
+    scripts: ({html}) => html`
     <script>
-      console.log('i am an inline script loaded from a section');
-    </script>
-    `
-    });
+      console.log('i am an inline script loaded though a section implemented in a view that uses a layout/master view that defines the same section.');
+    </script>`
+  },
+  body: ({html}) => html`
+  <h1 class="hero">hello world</h1>
+  <p>${this.message}</p>
+  <pre>${this.url}</pre>`
 }

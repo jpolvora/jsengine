@@ -1,98 +1,117 @@
 const path = require('path'),
   util = require('util'),
-  helpers = require('./helpers')
+  logger = require('debug')('JSENGINE:view');
 
-const emptyfn = () => '';
-const createError = (...args) => new Error(util.inspect(args))
+logger.log = console.log.bind(console);
 
-class View {
-  constructor(filePath, views, cache, model) {
-    this.views = views;
-    this.cache = cache;
-    this.model = model;
-    this.loaded = false;
-    const fullPath = path.isAbsolute(filePath) ? filePath : path.join(views, filePath);
-    this.fullPath = fullPath;
-    this.helpers = helpers;
+/* static no-instance shared functions */
 
-    this.binded = this.binder.bind(this);
-  }
 
-  loadTemplate(fullFilePath) {
-    try {
-      if (!this.cache) delete require.cache[require.resolve(fullFilePath)];
-      const fn = require(fullFilePath);
-      return fn;
-    } catch (error) {
-      throw createError('Error requiring file', fullFilePath, error.stack);
-    }
-  }
 
-  html(strings, ...values) {
+const tags = {
+  html: (strings, ...values) => {
     let str = '';
     for (let i = 0; i < strings.length; i++) {
-      str += strings[i] + (values[i] || '');
+      const val = (values[i] || '');
+      str += strings[i] + val;
     }
-
     return str;
   }
+}
 
-  binder(fn) {
-    return fn.bind(this);
+const emptyfn = () => 'emptyFn';
+const emptyObj = {};
+
+const createError = (...args) => {
+  const msg = util.inspect(args);
+  return new Error(msg);
+};
+
+function nodeRequire(fullPath, reload = false) {
+  try {
+    if (reload) delete require.cache[require.resolve(fullPath)];
+    const fn = require(fullPath);
+    return fn;
+  } catch (error) {
+    throw createError('Error requiring file', fullPath, error.stack);
+  }
+}
+
+//viewKind: view, partial, layout
+class View {
+  constructor(filePath, model, viewKind = 'view', options, body, sections) {
+    this.model = model
+    this.viewKind = viewKind
+    this.options = options
+
+    const fullPath = path.isAbsolute(filePath) ? filePath : path.join(options.views, filePath);
+    this.fullPath = fullPath
+    this.name = path.basename(fullPath)
+    this.renderBodyExecuted = false;
+
+    const self = this;
+    const methods = {
+      renderFile: self.renderFile.bind(self),
+      renderSection: self.createRenderSection.call(self, sections).bind(self),
+      renderBody: self.createRenderBody.call(self, body).bind(self)
+    }
+
+
+    methods.renderSection = this.createRenderSection.call(null, sections).bind(this)
+    methods.renderBody = this.createRenderBody.call(null, body).bind(this)
+
+    this.viewParameters = {...tags, ...this.options.helpers, ...methods};
   }
 
-  execute(throws) {
+  execute() {
     try {
-      const fn = this.loadTemplate(this.fullPath);
-      this.loaded = true;
-      if (typeof fn === "function") {
-        const result = fn.call(this, {
-          renderPartial: this.renderPartial.bind(this),
-          master: this.master.bind(this),
-          html: this.html.bind(this),
-          helpers: this.helpers,
-          model: this.model,
-          renderSection: this.renderSection && this.renderSection.bind(this) || emptyfn,
-          renderBody: this.renderBody && this.renderBody.bind(this) || emptyfn,
-        });
-        return result;
-      }
-      return fn;
+      logger('executing: ' + this.fullPath);
+      const {layout = '', body = emptyfn, sections = emptyObj} = nodeRequire(this.fullPath, !this.options.cache);
+      const result = layout
+        ? this.master(layout, body, sections)
+        : body.call(this.model, this.viewParameters);
+      logger('executed:', result);
+      return result;
     } catch (error) {
-      if (throws) throw createError('error executing view', error);
-      return "";
+      if (this.viewKind === 'view') throw createError('error executing view', error);
+      logger(error);
+      return error.toString();
     }
   }
 
   master(layout, body, sections) {
-    const MasterView = require('./masterview');
-    const master = new MasterView(layout, this.views, this.cache, this.model, body, sections);
-    const result = master.execute(true);
+    const masterView = new View(layout, this.model, 'layout', {...this.options}, body, sections);
+    const result = masterView.execute();
+    if (!masterView.renderBodyExecuted) throw new Error('renderBody not executed on layout view.')
     return result;
   }
 
-  renderPartial(fileName) {
-    const view = new View(fileName, this.views, this.cache, this.model)
-    const result = view.execute(false);
+  renderFile(filename) {
+    const partialView = new View(filename, this.model, 'partial', {...this.options});
+    const result = partialView.execute();
     return result;
   }
 
-  repeat(count, callback) {
-    let str = '';
-    for (let i = 0; i < count; i++) {
-      str += callback(i) || "0";
+  //this method must be curriered before use
+  createRenderBody(body = emptyfn) {
+    return function renderBody() {
+      const self = this;
+      if (self.renderBodyExecuted == true) throw new Error('renderBody already rendered');
+      if (self.viewKind !== 'layout') return `<span><b>[renderBody:view:${self.name}:error][is not allowed in a non master-page]</b></span>`;
+      const result = typeof body === "function" ? body.call(self.model, self.viewParameters) : body;
+      self.renderBodyExecuted = true;
+      return result;
     }
-
-    return str;
   }
 
-  forEach(iterable, callback) {
-    let str = '';
-    for (let i = 0; i < iterable.length; i++) {
-      const element = iterable[i];
-      str += callback(element, i || 0) || "";
+  createRenderSection(sections = {}) {
+    return function renderSection(sectionName, defaultValue = '') {
+      const self = this;
+      if (!self.viewKind === 'layout') return `<span><b>[renderSection:view:${self.name}:section:${sectionName}:error][is not allowed in a non master - page]</b ></span > `;
+      const section = sections[sectionName] || '';
+      const result = typeof section === 'function' ? section.call(self.model, self.viewParameters) : '';
+      return result;
     }
-    return str;
   }
 }
 

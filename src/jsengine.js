@@ -1,12 +1,12 @@
 const path = require('path'),
   fs = require('fs'),
-  util = require('util'),
   beautify_html = require('js-beautify').html,
   minify = require('html-minifier').minify,
   logger = require('debug')('JSENGINE'),
-  FsViewLocator = require('./fsviewlocator'),
+  util = require('util'),
+  write = util.promisify(fs.writeFile),
   View = require('./view'),
-  write = util.promisify(fs.writeFile)
+  helpers = require('./helpers');
 
 
 const minifyOptions = {
@@ -14,29 +14,32 @@ const minifyOptions = {
   removeComments: true,
   removeEmptyAttributes: true,
   removeRedundantAttributes: true
-}
+};
 
 class JsEngine {
   constructor(opts) {
     const isDevelopment = process.env.NODE_ENV === 'development';
 
     this.options = Object.assign({
+      isDevelopment: isDevelopment,
       cache: !isDevelopment,
       beautify: false,
       minify: false,
-      viewLocators: [],
+      helpers: helpers,
+      formatLang: {lang: 'pt-BR', currency: 'BRL'},
       views: path.join(path.dirname(process.mainModule.filename), 'views')
     }, opts);
 
-    this.options.viewLocators.push(new FsViewLocator(logger, this.options.views));
+    this.render = this.render.bind(this);
   }
 
-  async render(filePath, model, callback) {
-    logger("Start rendering: " + filePath);
-
+  render(fullPath, model, callback) {
+    logger('Start rendering: ' + fullPath);
+    console.time('render');
     try {
-      const view = new View(filePath, this.options.views, this.options.cache, model);
-      let html = view.execute(true);
+      const view = new View(fullPath, model, 'view', this.options);
+      let html = view.execute();
+
       if (html.length > 0) {
         if (this.options.beautify) {
           html = beautify_html(html);
@@ -49,6 +52,9 @@ class JsEngine {
     } catch (error) {
       logger(error);
       return callback(error);
+    }
+    finally {
+      console.timeEnd('render');
     }
   }
 }

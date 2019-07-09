@@ -1,13 +1,14 @@
-module.exports = function () {
-  return this.master('gran_layout', /*html*/`
-  
+module.exports = {
+  layout: 'gran_layout.js',
+  sections: {},
+  body: ({html, renderSection, renderFile, renderBody}) => html`
   <head>
-    ${this.renderSection('styles')}
+    ${renderSection('styles')}
   </head>
+  
   <body>
-    ${this.renderPartial('menu.js')}
-    ${this.renderBody()}
-    ${this.renderSection('scripts')}
-  </body > 
-`)
+    ${renderFile('menu.js')}
+    ${renderBody()}
+    ${renderSection('scripts')}
+  </body>`
 }

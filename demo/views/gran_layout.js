@@ -1,8 +1,5 @@
-module.exports = function () {
-  return /*html*/ `  
-  <html lang="pt-BR">
-    
-    ${this.renderBody()}
-    </html>
-  `
-}
+module.exports.body = ({html, renderBody}) => html`
+<html lang="pt-BR">
+${renderBody()}
+
+</html>`
