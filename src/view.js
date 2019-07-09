@@ -7,12 +7,19 @@ logger.log = console.log.bind(console);
 /* static no-instance shared functions */
 
 function htmlTag(strings, ...values) {
-  let str = '';
+  if (values.length === 0) return strings.join('').replace(/^\s*$(?:\r\n?|\n)/gm, "");
+  const html = [];
   for (let i = 0; i < strings.length; i++) {
+    const str = strings[i]
     const val = (values[i] || '');
-    str += strings[i] + val;
+    const dolar = str[str.length - 1];
+    if (dolar === '$') {
+      html.push(str.slice(0, str.length - 1) + escape(val));
+    } else {
+      html.push(str + val);
+    }
   }
-  return str;
+  return html.join('').replace(/^\s*$(?:\r\n?|\n)/gm, "");
 }
 
 const emptyfn = () => 'emptyFn';
@@ -49,6 +56,7 @@ class View {
     this.name = path.basename(fullPath)
     this.renderBodyExecuted = false;
 
+    this.master = this.createMaster().bind(this);
     const methods = {
       renderFile: Object.freeze(this.createRenderFile().bind(this)),
       renderSection: Object.freeze(this.createRenderSection().bind(this)),
@@ -70,12 +78,14 @@ class View {
   }
 
   renderWrapper(render) {
-    const result = render.call(this.model, this.viewParameters).trim();
+    if (typeof render !== "function") throw createError("render must be a function.", this.fullPath, render)
+
+    const result = render.call(this.model, this.viewParameters) || '';
     logger('render executed', this.fullPath);
-    if (this.viewKind === 'layout') {
-      return result;
+    if (this.options.printComments) {
+      return `<!--startOf:${this.viewKind}:${this.name} --> \n${result}\n<!-- endOf:${this.viewKind}:${this.name}-->`;
     }
-    return `<!--startOf: ${this.name} --> \n${result}\n<!-- endOf:${this.name}-->`;
+    return result;
   }
 
   execute() {
@@ -87,7 +97,7 @@ class View {
       if (typeof template === "string") return this.renderWrapper(() => template);
       if (typeof template === "function") return this.renderWrapper(template);
       if (typeof template.layout === "string") return this.master(template);
-      if (typeof template.render === "function") return this.renderWrapper(template.render);
+      //if (typeof template.render === "function") return this.renderWrapper(template.render);
 
       throw createError("Unable to render template (shape of module not supported):" + this.fullPath);
     } catch (error) {
@@ -97,11 +107,14 @@ class View {
     }
   }
 
-  master({layout, render, sections}) {
-    const masterView = new View(layout, this.model, 'layout', {...this.options}, render.bind(this), sections, this.depth + 1);
-    const result = masterView.execute();
-    if (!masterView.renderBodyExecuted) throw createError('renderBody not executed on layout view: ' + layout)
-    return result;
+  createMaster() {
+    const self = this;
+    return ({layout, render, sections}) => {
+      const masterView = new View(layout, self.model, 'layout', {...self.options}, self.renderWrapper.bind(self, render), sections, self.depth + 1);
+      const result = masterView.execute();
+      if (!masterView.renderBodyExecuted) throw createError('renderBody not executed on layout view: ' + layout)
+      return result;
+    }
   }
 
   createRenderFile() {
@@ -122,21 +135,22 @@ class View {
       if (self.viewKind !== 'layout') throw createError("cannot renderbody in a non layout view: " + self.fullPath);
       self.renderBodyExecuted = true;
       if (typeof self.render !== "function") throw createError("template must have a render() function");
-      const result = this.renderWrapper(self.render);
+      const result = self.render();
       return result;
     }
   }
 
   createRenderSection() {
     const self = this;
-    return (sectionName, defaultValue = '') => {
+    return (sectionName, defaultValue = false) => {
       if (self !== this) throw createError("self!=this")
-      const sections = self.sections;
-      if (!sections) return "";
-      if (!self.viewKind === 'layout') return `<span><b>[renderSection:view:${self.name}:section:${sectionName}:error][is not allowed in a non master - page]</b ></span > `;
-      const section = sections[sectionName] || defaultValue;
-      const result = typeof section === 'function' ? this.renderWrapper(section) : section;
-      return result;
+      if (self.viewKind !== 'layout') throw createError("rendersection allowed only in master/layout pages.")
+      const sections = self.sections || {};
+      const section = sections.hasOwnProperty(sectionName) ? sections[sectionName] : defaultValue;
+
+      const fn = typeof section === "function" ? section : () => section;
+      const result = fn() || '';
+      return (self.options.printComments) ? `<!--section_start:${sectionName}-->\n${result}\n<!--section_end:${sectionName}-->` : result;
     }
   }
 }

@@ -23,8 +23,9 @@ class JsEngine {
     this.options = Object.assign({
       isDevelopment: isDevelopment,
       cache: !isDevelopment,
-      beautify: false,
+      beautify: isDevelopment,
       minify: false,
+      printComments: isDevelopment,
       helpers: helpers,
       formatLang: {lang: 'pt-BR', currency: 'BRL'},
       views: path.join(path.dirname(process.mainModule.filename), 'views')
@@ -42,7 +43,7 @@ class JsEngine {
 
       if (html.length > 0) {
         if (this.options.beautify) {
-          html = beautify_html(html);
+          html = beautify_html(html, {indent_size: 2});
         }
         if (this.options.minify) {
           html = minify(html, minifyOptions);
