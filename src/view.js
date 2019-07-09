@@ -70,8 +70,11 @@ class View {
   }
 
   renderWrapper(render) {
-    const result = render.call(this.model, this.viewParameters);
+    const result = render.call(this.model, this.viewParameters).trim();
     logger('render executed', this.fullPath);
+    if (this.viewKind === 'layout') {
+      return result;
+    }
     return `<!--startOf: ${this.name} --> \n${result}\n<!-- endOf:${this.name}-->`;
   }
 
@@ -86,17 +89,18 @@ class View {
       if (typeof template.layout === "string") return this.master(template);
       if (typeof template.render === "function") return this.renderWrapper(template.render);
 
-      throw createError("could not identify how to render template:" + this.fullPath);
+      throw createError("Unable to render template (shape of module not supported):" + this.fullPath);
     } catch (error) {
       logger(error);
-      throw createError('error executing view: ' + this.fullPath, error);
+      if (this.viewKind === "view") throw createError('error executing view: ' + this.fullPath, error);
+      return this.renderWrapper(() => `<div class="error">${error}</div>`)
     }
   }
 
   master({layout, render, sections}) {
-    const masterView = new View(layout, this.model, 'layout', {...this.options}, this.renderWrapper.bind(this, render), sections, this.depth + 1);
+    const masterView = new View(layout, this.model, 'layout', {...this.options}, render.bind(this), sections, this.depth + 1);
     const result = masterView.execute();
-    if (!masterView.renderBodyExecuted) throw new Error('renderBody not executed on layout view: ' + layout)
+    if (!masterView.renderBodyExecuted) throw createError('renderBody not executed on layout view: ' + layout)
     return result;
   }
 
@@ -114,11 +118,11 @@ class View {
     const self = this;
     return () => {
       if (self !== this) throw createError("self!=this")
-      if (self.renderBodyExecuted == true) throw new Error('renderBody already rendered for this layout:' + self.fullPath);
+      if (self.renderBodyExecuted == true) throw createError('renderBody already rendered for this layout:' + self.fullPath);
       if (self.viewKind !== 'layout') throw createError("cannot renderbody in a non layout view: " + self.fullPath);
       self.renderBodyExecuted = true;
       if (typeof self.render !== "function") throw createError("template must have a render() function");
-      const result = self.render.call(self.model, self.viewParameters);
+      const result = this.renderWrapper(self.render);
       return result;
     }
   }
@@ -131,7 +135,7 @@ class View {
       if (!sections) return "";
       if (!self.viewKind === 'layout') return `<span><b>[renderSection:view:${self.name}:section:${sectionName}:error][is not allowed in a non master - page]</b ></span > `;
       const section = sections[sectionName] || defaultValue;
-      const result = typeof section === 'function' ? section.call(self.model, self.viewParameters) : section;
+      const result = typeof section === 'function' ? this.renderWrapper(section) : section;
       return result;
     }
   }
