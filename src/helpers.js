@@ -55,8 +55,8 @@ function forEach(iterable, callback) {
   return str;
 }
 
-function insertScript(html, src) {
-  return `<script type="text/javascript" src="${src}"></script>`;
+function insertScript(html: Function, src: String) {
+  return html`<script type="text/javascript" src="${src}"></script>`;
 }
 
 function insertStyle(html, href) {
