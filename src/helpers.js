@@ -55,12 +55,12 @@ function forEach(iterable, callback) {
   return str;
 }
 
-function insertScript(html: Function, src: String) {
+function insertScript(html, src) {
   return html`<script type="text/javascript" src="${src}"></script>`;
 }
 
 function insertStyle(html, href) {
-  return `<link rel="stylesheet" href="${href}" />`;
+  return html`<link rel="stylesheet" href="${href}" />`;
 }
 
 async function concatAndWrite(fileName, files) {
