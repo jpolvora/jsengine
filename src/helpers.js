@@ -30,7 +30,7 @@ function formatMoney(val) {
 }
 
 function formatNumber(val) {
-  return fMoney.format(val);
+  return fNumber.format(val);
 }
 
 function formatPercent(val) {
@@ -44,6 +44,15 @@ function repeat(count, callback) {
   }
 
   return str;
+}
+
+function ternary(exprCompare, callback) {
+  try {
+    if (exprCompare) return callback(exprCompare);
+  } catch (e) {
+    return '';
+  }
+  return '';
 }
 
 function forEach(iterable, callback) {
@@ -90,6 +99,7 @@ module.exports = (html) => ({
   formatMoney,
   formatNumber,
   formatPercent,
+  ternary,
   forEach,
   repeat,
   insertScript: insertScript.bind(null, html),
