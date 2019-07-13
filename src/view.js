@@ -25,10 +25,11 @@ function htmlTag(strings, ...values) {
 const emptyfn = () => 'emptyFn';
 const emptyObj = {};
 
-const createError = (...args) => {
-  const msg = util.inspect(args);
-  return new Error(msg);
-};
+function createError(...args) {
+  const error = new Error(util.inspect(args))
+  Error.captureStackTrace(error, createError)
+  return error
+}
 
 function nodeRequire(fullPath, reload = false) {
   try {
@@ -95,16 +96,46 @@ class View {
       const viewModule = nodeRequire(this.fullPath, !this.options.cache);
       if (typeof viewModule !== "function") throw createError('module must exports a default function: ' + this.fullPath)
       const template = viewModule.call(null, this.viewParameters);
-      if (typeof template === "string") result = this.renderWrapper(() => template);
-      else if (typeof template === "function") result = this.renderWrapper(template);
-      else if (typeof template.layout === "string") result = this.master(template);
-      throw createError("Unable to render template (shape of module not supported):" + this.fullPath);
+      switch (typeof template) {
+        case "boolean":
+          result = ' ';
+          break;
+        case "string":
+          result = this.renderWrapper(() => template);
+          break;
+        case "function":
+          result = this.renderWrapper(template);
+          break;
+        case "object":
+          switch (typeof template.layout) {
+            case "string":
+              result = this.master(template);
+              break;
+            case "function":
+              result = this.master(template.layout.call(this));
+              break;
+            default:
+              break;
+          }
+
+        // if (typeof template.render === "function") {
+        //   result = this.renderWrapper(template.render);
+        //   break;
+        // } else if (typeof template.render === "string") {
+        //   result = this.renderWrapper(() => template.render);
+        //   break;
+        // }
+
+        default:
+          break;
+      }
+      if (result === '') throw createError("Unable to render template (shape of module not supported):" + this.fullPath);
     } catch (error) {
       logger(error);
-      if (this.viewKind === "view") throw newError;
-      result += `<div class="error"><p>${newError.message}</p><p>${newError.stack}</p ></div>`;
+      if (this.viewKind === "view") throw error;
+      result += `<div class="error"><p>${error.message}</p><p>${error.stack}</p ></div>`;
     } finally {
-      return result;
+      return result.trim();
     }
   }
 
@@ -131,13 +162,12 @@ class View {
   createRenderBody() {
     const self = this;
     return () => {
-      if (self !== this) throw createError("self!=this")
-      if (self.renderBodyExecuted == true) throw createError('renderBody already rendered for this layout:' + self.fullPath);
-      if (self.viewKind !== 'layout') throw createError("cannot renderbody in a non layout view: " + self.fullPath);
-      self.renderBodyExecuted = true;
-      if (typeof self.render !== "function") throw createError("template must have a render() function");
-      const result = self.render();
-      return result;
+      if (!self.renderBodyExecuted && self.viewKind === 'layout' && typeof self.render === "function") {
+        self.renderBodyExecuted = true;
+        const result = self.render();
+        return result;
+      }
+      return "";
     }
   }
 
