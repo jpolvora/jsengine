@@ -36,7 +36,7 @@ class JsEngine {
 
   render(fullPath, model, callback) {
     logger('Start rendering: ' + fullPath);
-    console.time('render');
+    console.time(fullPath);
     try {
       const view = new View(fullPath, model, 'view', this.options);
       let html = view.execute();
@@ -55,7 +55,7 @@ class JsEngine {
       return callback(error);
     }
     finally {
-      console.timeEnd('render');
+      console.timeEnd(fullPath);
     }
   }
 }
