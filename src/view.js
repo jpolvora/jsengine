@@ -83,34 +83,35 @@ class View {
     const result = render.call(this.model, this.viewParameters) || '';
     logger('render executed', this.fullPath);
     if (this.options.printComments) {
-      return `<!--startOf:${this.viewKind}:${this.name} --> \n${result}\n<!-- endOf:${this.viewKind}:${this.name}-->`;
+      return `<!-- startOf:${this.viewKind}:${this.name} --> \n${result}\n<!-- endOf:${this.viewKind}:${this.name} -->`;
     }
     return result;
   }
 
   execute() {
+    let result = '';
     try {
       logger('executing: ' + this.fullPath, this.name);
       const viewModule = nodeRequire(this.fullPath, !this.options.cache);
       if (typeof viewModule !== "function") throw createError('module must exports a default function: ' + this.fullPath)
       const template = viewModule.call(null, this.viewParameters);
-      if (typeof template === "string") return this.renderWrapper(() => template);
-      if (typeof template === "function") return this.renderWrapper(template);
-      if (typeof template.layout === "string") return this.master(template);
-      //if (typeof template.render === "function") return this.renderWrapper(template.render);
-
+      if (typeof template === "string") result = this.renderWrapper(() => template);
+      else if (typeof template === "function") result = this.renderWrapper(template);
+      else if (typeof template.layout === "string") result = this.master(template);
       throw createError("Unable to render template (shape of module not supported):" + this.fullPath);
     } catch (error) {
       logger(error);
-      if (this.viewKind === "view") throw createError('error executing view: ' + this.fullPath, error);
-      return this.renderWrapper(() => `<div class="error">${error}</div>`)
+      if (this.viewKind === "view") throw newError;
+      result += `<div class="error"><p>${newError.message}</p><p>${newError.stack}</p ></div>`;
+    } finally {
+      return result;
     }
   }
 
   createMaster() {
     const self = this;
-    return ({layout, render, sections}) => {
-      const masterView = new View(layout, self.model, 'layout', {...self.options}, self.renderWrapper.bind(self, render), sections, self.depth + 1);
+    return ({ layout, render, sections }) => {
+      const masterView = new View(layout, self.model, 'layout', { ...self.options }, self.renderWrapper.bind(self, render), sections, self.depth + 1);
       const result = masterView.execute();
       if (!masterView.renderBodyExecuted) throw createError('renderBody not executed on layout view: ' + layout)
       return result;
@@ -119,9 +120,9 @@ class View {
 
   createRenderFile() {
     const self = this;
-    return (filename) => {
+    return filename => {
       if (self !== this) throw createError("self!=this")
-      const partialView = new View(filename, self.model, 'partial', {...self.options});
+      const partialView = new View(filename, self.model, 'partial', { ...self.options });
       const result = partialView.execute();
       return result;
     }
@@ -150,7 +151,7 @@ class View {
 
       const fn = typeof section === "function" ? section : () => section;
       const result = fn() || '';
-      return (self.options.printComments) ? `<!--section_start:${sectionName}-->\n${result}\n<!--section_end:${sectionName}-->` : result;
+      return (self.options.printComments) ? `<!-- section_start: ${sectionName} -->\n${result} \n <!-- section_end: ${sectionName} --> ` : result;
     }
   }
 }
