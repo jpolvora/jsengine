@@ -1,7 +1,7 @@
 {
   "name": "jsengine",
-  "version": "0.9.2",
-  "description": "A Javascript Template Engine for Node.js",
+  "version": "1.0.1",
+  "description": "A Javascript Template Engine for Node.js that supports master templates and layouts",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -16,8 +16,18 @@
     "view",
     "engine",
     "node",
+    "nodejs",
     "javascript",
     "ejs",
+    "jse",
+    "razorjs",
+    "master",
+    "layout",
+    "includes",
+    "tagged-template-strings",
+    "viewengine",
+    "literals",
+    "tagged",
     "razor"
   ],
   "author": "jpolvora@gmail.com",
@@ -28,9 +38,8 @@
   "homepage": "https://github.com/jpolvora/jsengine#readme",
   "dependencies": {
     "debug": "^4.1.1",
-    "html-minifier": "^3.5.21",
-    "js-beautify": "^1.10.0",
-    "escape-html": "^1.0.3"
+    "escape-html": "^1.0.3",
+    "html-minifier": "4.0.0"
   },
   "devDependencies": {
     "express": "4.17.1"
