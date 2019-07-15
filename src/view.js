@@ -1,6 +1,9 @@
 const path = require('path'),
   util = require('util'),
-  logger = require('debug')('JSENGINE:view');
+  logger = require('debug')('JSENGINE:view'),
+  escape = require("escape-html"),
+  fs = require('fs'),
+  vm = require('vm')
 
 logger.log = console.log.bind(console);
 
@@ -22,8 +25,7 @@ function htmlTag(strings, ...values) {
   return html.join('').replace(/^\s*$(?:\r\n?|\n)/gm, "");
 }
 
-const emptyfn = () => 'emptyFn';
-const emptyObj = {};
+const emptyfn = () => ''
 
 function createError(...args) {
   const error = new Error(util.inspect(args))
@@ -31,10 +33,38 @@ function createError(...args) {
   return error
 }
 
-function nodeRequire(fullPath, reload = false) {
+function wrapHtml(fullPath, rewrite) {
+  const newFullPath = fullPath + '.jse';
   try {
-    if (reload) delete require.cache[require.resolve(fullPath)];
-    const fn = require(fullPath);
+    const stats = fs.statSync(newFullPath);
+    if (stats.isFile() && !rewrite) return newFullPath;
+  } catch (e) {
+    logger(e);
+  }
+  try {
+    const text = fs.readFileSync(fullPath);
+    const code = `module.exports = (html) => html\`\n${text}\``;
+    fs.writeFileSync(newFullPath, code, {
+      flag: 'w+'
+    });
+  } catch (e) {
+    logger(e);
+  }
+  finally {
+    return newFullPath;
+  }
+
+}
+
+function nodeRequire(fullPath, reload = false) {
+
+  try {
+    if (path.extname(fullPath) === ".html") {
+      fullPath = wrapHtml(fullPath, reload);
+    }
+    const ext = path.extname(fullPath) ? '' : '.jse'
+    if (reload) delete require.cache[require.resolve(fullPath + ext)];
+    const fn = require(fullPath + ext);
     return fn;
   } catch (error) {
     throw createError('Error requiring file', fullPath, error.stack);
@@ -94,6 +124,7 @@ class View {
     try {
       logger('executing: ' + this.fullPath, this.name);
       const viewModule = nodeRequire(this.fullPath, !this.options.cache);
+
       if (typeof viewModule !== "function") throw createError('module must exports a default function: ' + this.fullPath)
       const template = viewModule.call(null, this.viewParameters);
       switch (typeof template) {
@@ -133,7 +164,7 @@ class View {
     } catch (error) {
       logger(error);
       if (this.viewKind === "view") throw error;
-      result += `<div class="error"><p>${error.message}</p><p>${error.stack}</p ></div>`;
+      result += htmlTag`<div class="error"><p>$${error.message}</p><p>$${error.stack}</p ></div>`;
     } finally {
       return result.trim();
     }

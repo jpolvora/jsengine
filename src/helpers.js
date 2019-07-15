@@ -17,7 +17,11 @@ const fMoney = new Intl.NumberFormat('pt-BR', {
   maximumFractionDigits: 2
 });
 
-const fNumber = new Intl.NumberFormat('pt-BR');
+const fNumber = new Intl.NumberFormat('pt-BR', {
+  style: 'decimal',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2
+});
 
 const fPercent = new Intl.NumberFormat('pt-BR', {
   style: 'percent',

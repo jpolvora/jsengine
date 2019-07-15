@@ -2,7 +2,7 @@ const path = require('path'),
   fs = require('fs'),
   beautify_html = require('js-beautify').html,
   minify = require('html-minifier').minify,
-  logger = require('debug')('JSENGINE'),
+  logger = require('debug')('JSENGINE:main'),
   util = require('util'),
   write = util.promisify(fs.writeFile),
   View = require('./view'),
@@ -27,11 +27,11 @@ class JsEngine {
       minify: false,
       printComments: isDevelopment,
       helpers: helpers,
-      formatLang: {lang: 'pt-BR', currency: 'BRL'},
+      formatLang: { lang: 'pt-BR', currency: 'BRL' },
       views: path.join(path.dirname(process.mainModule.filename), 'views')
     }, opts);
 
-    this.render = this.render.bind(this);
+    this.__express = this.render.bind(this);
   }
 
   render(fullPath, model, callback) {
@@ -43,7 +43,7 @@ class JsEngine {
 
       if (html.length > 0) {
         if (this.options.beautify) {
-          html = beautify_html(html, {indent_size: 2});
+          html = beautify_html(html, { indent_size: 2 });
         }
         if (this.options.minify) {
           html = minify(html, minifyOptions);
