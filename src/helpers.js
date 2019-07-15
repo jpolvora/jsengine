@@ -17,12 +17,6 @@ const fMoney = new Intl.NumberFormat('pt-BR', {
   maximumFractionDigits: 2
 });
 
-const fNumber = new Intl.NumberFormat('pt-BR', {
-  style: 'decimal',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2
-});
-
 const fPercent = new Intl.NumberFormat('pt-BR', {
   style: 'percent',
   minimumFractionDigits: 2,
@@ -33,8 +27,12 @@ function formatMoney(val) {
   return fMoney.format(roundDown(val, 2));
 }
 
-function formatNumber(val) {
-  return fNumber.format(val);
+function formatNumber(val, dec = 2) {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'decimal',
+    minimumFractionDigits: dec,
+    maximumFractionDigits: dec
+  }).format(val);
 }
 
 function formatPercent(val) {
@@ -50,6 +48,14 @@ function repeat(count, callback) {
   return str;
 }
 
+function formatDate(val) {
+  return moment(val).format('DD/MM/YYYY')
+}
+
+
+function formatDateTime(val) {
+  return moment(val).format()
+}
 function randomFromArray(items = [], cb) {
   const item = items[Math.floor(Math.random() * items.length)];
   return cb(item);
@@ -182,6 +188,8 @@ module.exports = (html) => ({
   formatMoney,
   formatNumber,
   formatPercent,
+  formatDate,
+  formatDateTime,
   ternary,
   loop,
   whilePop,

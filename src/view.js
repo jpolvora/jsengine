@@ -6,6 +6,8 @@ const path = require('path'),
   vm = require('vm')
 
 logger.log = console.log.bind(console);
+logger.error = console.error.bind(console);
+
 
 /* static no-instance shared functions */
 
