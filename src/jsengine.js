@@ -43,7 +43,6 @@ class JsEngine {
       const view = new View(fullPath, model, 'view', this.options);
       let html = view.execute();
 
-
       if (this.options.minify) {
         html = minify(html, getMinifyOptions(this.options.isDevelopment));
       }
