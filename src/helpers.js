@@ -129,10 +129,12 @@ function ternary(exprCompare, callbackTrue, callbackFalse) {
   const fnTrue = typeof callbackTrue === "function" ? callbackTrue : () => callbackTrue || '';
   const fnFalse = typeof callbackFalse === "function" ? callbackFalse : () => callbackFalse || '';
   try {
-    if (!!exprCompare === true) return fnTrue.call(null);
-    else return fnFalse.call(null);
+    if (Array.isArray(exprCompare)) {
+      return exprCompare.length > 0 ? fnTrue() : fnFalse();
+    }
+    return !!exprCompare ? fnTrue() : fnFalse();
   } catch (e) {
-    return e.message;
+    return fnFalse();
   }
 }
 
