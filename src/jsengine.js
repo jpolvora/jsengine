@@ -27,6 +27,7 @@ class JsEngine {
     const isDevelopment = process.env.NODE_ENV === 'development';
 
     this.options = Object.assign({
+      assets: '/assets',
       isDevelopment: isDevelopment,
       cache: !isDevelopment,
       beautify: isDevelopment,

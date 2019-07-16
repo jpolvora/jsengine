@@ -59,7 +59,6 @@ function wrapHtml(fullPath, rewrite) {
 }
 
 function nodeRequire(fullPath, reload = false) {
-
   try {
     if (path.extname(fullPath) === ".html") {
       fullPath = wrapHtml(fullPath, reload);
@@ -86,7 +85,11 @@ class View {
 
     const fullPath = path.isAbsolute(filePath) ? filePath : path.join(options.views, filePath);
     this.fullPath = fullPath
+    this.dirname = path.dirname(fullPath);
+    this.ext = path.extname(fullPath);
+    this.assets = options.assets || this.dirname.trimRight('/') + '/assets';
     this.name = path.basename(fullPath)
+
     this.renderBodyExecuted = false;
 
     this.master = this.createMaster().bind(this);
@@ -97,7 +100,7 @@ class View {
     }
 
     const html = htmlTag.bind(this);
-    const helpers = options.helpers.call(this, html);
+    const helpers = options.helpers.call(null, this, html);
     this.viewParameters = Object.freeze(Object.assign(html, {
       ...helpers,
       ...methods
@@ -126,7 +129,6 @@ class View {
     try {
       logger('executing: ' + this.fullPath, this.name);
       const viewModule = nodeRequire(this.fullPath, !this.options.cache);
-
       if (typeof viewModule !== "function") throw createError('module must exports a default function: ' + this.fullPath)
       const template = viewModule.call(null, this.viewParameters);
       switch (typeof template) {
@@ -174,8 +176,9 @@ class View {
 
   createMaster() {
     const self = this;
-    return ({ layout, render, sections }) => {
-      const masterView = new View(layout, self.model, 'layout', { ...self.options }, self.renderWrapper.bind(self, render), sections, self.depth + 1);
+    return ({ layout, render, sections = {} }) => {
+      const mergedSections = Object.assign({}, self.sections || {}, sections);
+      const masterView = new View(layout, self.model, 'layout', { ...self.options }, self.renderWrapper.bind(self, render), mergedSections, self.depth + 1);
       const result = masterView.execute();
       if (!masterView.renderBodyExecuted) throw createError('renderBody not executed on layout view: ' + layout)
       return result;

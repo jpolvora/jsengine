@@ -83,6 +83,7 @@ function nextRandom(iterable = [], cb) {
 
   return cb(getNext, getCurrent);
 }
+
 function next(iterable = [], cb) {
   const count = iterable.length;
   let i = 0;
@@ -102,11 +103,7 @@ function next(iterable = [], cb) {
   return cb(getNext, getCurrent);
 }
 
-function pipelines() {
-
-}
-
-function counterReset(count, callback) {
+function counterReset(count = 0, callback = Function) {
   let i = 0;
   function incrementor(cb, onStart, onEnd) {
     i++;
@@ -148,7 +145,18 @@ function loop(iterable, callback) {
   return str;
 }
 
+/**
+ * Inserts a script
+ *
+ * @param {String} html
+ * @param {String} src
+ * @returns {String}
+ */
 function insertScript(html, src) {
+  const self = this;
+  if (!path.isAbsolute(src)) {
+    src = self.assets.trimRight('/') + '/' + src;
+  }
   return html`<script type="text/javascript" src="${src}"></script>`;
 }
 
@@ -170,7 +178,7 @@ async function concatAndWrite(fileName, files) {
   await write(fileName, buffer.toString());
 }
 
-async function createBundle(path, refresh = false, files = []) {
+async function createBundle(path = '', refresh = false, files = []) {
   const s = await stat(path);
   if (s.error || refresh) {
     await concatAndWrite(fileName, files);
@@ -182,7 +190,9 @@ async function createBundle(path, refresh = false, files = []) {
  */
 const shared = {}
 
-module.exports = (html) => ({
+
+
+module.exports = (self, html) => ({
   shared,
   moment,
   formatMoney,
@@ -198,7 +208,7 @@ module.exports = (html) => ({
   next,
   nextRandom,
   counterReset,
-  insertScript: insertScript.bind(null, html),
-  insertStyle: insertStyle.bind(null, html),
+  insertScript: insertScript.bind(self, html),
+  insertStyle: insertStyle.bind(self, html),
   createBundle
 })
