@@ -74,7 +74,7 @@ function nodeRequire(fullPath, reload = false) {
 
 //viewKind: view, partial, layout
 class View {
-  constructor(filePath, model, viewKind, options, render, sections, depth = 1) {
+  constructor(moduleOrPath, model, viewKind, options, render, sections, depth = 1) {
     this.model = model;
     this.viewKind = (viewKind === "view" || viewKind === "layout" || viewKind === "partial") ? String(viewKind) : false;
     if (!this.viewKind) throw createError('invalid view kind: ' + viewKind);
@@ -82,14 +82,19 @@ class View {
     this.render = render || emptyfn.bind(this);
     this.sections = sections;
     this.depth = depth;
-
-    const fullPath = path.isAbsolute(filePath) ? filePath : path.join(options.views, filePath);
+    this.fn = null;
+    this.filename = moduleOrPath;
+    if (moduleOrPath instanceof module.constructor) {
+      if (typeof moduleOrPath.filename === "string") this.filename = moduleOrPath.filename;
+      if (typeof moduleOrPath.exports.view === "function") this.fn = moduleOrPath.exports.view;
+    }
+    if (typeof this.filename !== "string") throw createError("argument moduleOrPath invalid: must be a function or a module");
+    const fullPath = path.isAbsolute(this.filename) ? this.filename : options.views.trimRight('/') + '/' + this.filename;
     this.fullPath = fullPath
     this.dirname = path.dirname(fullPath);
     this.ext = path.extname(fullPath);
     this.assets = options.assets || this.dirname.trimRight('/') + '/assets';
     this.name = path.basename(fullPath)
-
     this.renderBodyExecuted = false;
 
     this.master = this.createMaster().bind(this);
@@ -110,7 +115,7 @@ class View {
         html: html
       }));
 
-    logger(`created view ${filePath} as ${this.viewKind}`)
+    logger(`created view ${moduleOrPath} as ${this.viewKind}`)
   }
 
   renderWrapper(render) {
@@ -125,15 +130,14 @@ class View {
   }
 
   execute() {
-    let result = '';
+    let result = ' ';
     try {
-      logger('executing: ' + this.fullPath, this.name);
-      const viewModule = nodeRequire(this.fullPath, !this.options.cache);
+      logger('executing: ' + this.fullPath);
+      const viewModule = this.fn ? this.fn : nodeRequire(this.fullPath, !this.options.cache);
       if (typeof viewModule !== "function") throw createError('module must exports a default function: ' + this.fullPath)
       const template = viewModule.call(null, this.viewParameters);
       switch (typeof template) {
         case "boolean":
-          result = ' ';
           break;
         case "string":
           result = this.renderWrapper(() => template);

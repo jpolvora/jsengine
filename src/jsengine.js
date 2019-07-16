@@ -3,6 +3,7 @@ const path = require('path'),
   minify = require('html-minifier').minify,
   logger = require('debug')('JSENGINE:main'),
   util = require('util'),
+  memoize = require('fast-memoize'),
   write = util.promisify(fs.writeFile),
   View = require('./view'),
   helpers = require('./helpers');
@@ -39,16 +40,16 @@ class JsEngine {
     }, opts);
 
     this.__express = this.render.bind(this);
+    this.__cachedRender = memoize(this.render).bind(this);
     logger('JsEngine instance created with options: ' + util.inspect(this.options))
   }
 
-  render(fullPath, model, callback) {
-    logger('Start rendering: ' + fullPath);
+  render(moduleOrFullPath, model, callback) {
+    logger('Start rendering: ' + moduleOrFullPath);
     let html = '', error = undefined;
-
     try {
-      console.time(fullPath);
-      const view = new View(fullPath, model, 'view', this.options);
+      console.time(moduleOrFullPath);
+      const view = new View(moduleOrFullPath, model, 'view', this.options);
       html = view.execute();
 
       if (this.options.minify) {
@@ -59,9 +60,10 @@ class JsEngine {
       error = e;
     }
     finally {
-      console.timeEnd(fullPath);
-      logger('End rendering: ' + fullPath);
-      return callback(error, html);
+      console.timeEnd(moduleOrFullPath);
+      logger('End rendering: ' + moduleOrFullPath);
+      if (typeof callback === "function") return callback(error, html);
+      return error ? error : html;
     }
   }
 }
