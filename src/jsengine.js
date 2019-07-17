@@ -47,8 +47,9 @@ class JsEngine {
   render(moduleOrFullPath, model, callback) {
     logger('Start rendering: ' + moduleOrFullPath);
     let html = '', error = undefined;
+    const hrstart = process.hrtime();
     try {
-      console.time(moduleOrFullPath);
+
       const view = new View(moduleOrFullPath, model, 'view', this.options);
       html = view.execute();
 
@@ -60,8 +61,9 @@ class JsEngine {
       error = e;
     }
     finally {
-      console.timeEnd(moduleOrFullPath);
-      logger('End rendering: ' + moduleOrFullPath);
+      const hrend = process.hrtime(hrstart);
+      const end = util.format('Execution time (hr): %ds %dms', hrend[0], hrend[1] / 1000000);
+      logger('End rendering: ' + end + moduleOrFullPath);
       if (typeof callback === "function") return callback(error, html);
       return error ? error : html;
     }
