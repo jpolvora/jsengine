@@ -1,6 +1,6 @@
 {
   "name": "jsengine",
-  "version": "1.0.1",
+  "version": "1.1.1",
   "description": "A Javascript Template Engine for Node.js that supports master templates and layouts",
   "main": "index.js",
   "scripts": {
@@ -39,7 +39,9 @@
   "dependencies": {
     "debug": "^4.1.1",
     "escape-html": "^1.0.3",
-    "html-minifier": "4.0.0"
+    "fast-memoize": "2.5.1",
+    "html-minifier": "4.0.0",
+    "moment": "2.24.0"
   },
   "devDependencies": {
     "express": "4.17.1"

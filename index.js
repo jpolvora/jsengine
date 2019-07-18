@@ -1,1 +1,1 @@
-module.exports = require('./src/jsengine');
+module.exports = require('./src')
