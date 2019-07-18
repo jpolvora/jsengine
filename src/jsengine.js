@@ -1,4 +1,5 @@
 const path = require('path'),
+  { EventEmitter } = require('events'),
   fs = require('fs'),
   minify = require('html-minifier').minify,
   logger = require('debug')('JSENGINE:main'),
@@ -23,16 +24,16 @@ const getMinifyOptions = (dev) => ({
   removeRedundantAttributes: !dev
 });
 
-class JsEngine {
+class JsEngine extends EventEmitter {
   constructor(opts) {
+    super()
     const isDevelopment = process.env.NODE_ENV === 'development';
 
     this.options = Object.assign({
       assets: '/assets',
       isDevelopment: isDevelopment,
       cache: !isDevelopment,
-      beautify: isDevelopment,
-      minify: false,
+      minify: true,
       printComments: isDevelopment,
       helpers: helpers,
       formatLang: { lang: 'pt-BR', currency: 'BRL' },
@@ -41,20 +42,24 @@ class JsEngine {
 
     this.__express = this.render.bind(this);
     this.__cachedRender = memoize(this.render).bind(this);
-    logger('JsEngine instance created with options: ' + util.inspect(this.options))
+    logger('JsEngine instance created with options: %O ', this.options)
   }
 
   render(moduleOrFullPath, model, callback) {
     logger('Start rendering: ' + moduleOrFullPath);
-    let html = '', error = undefined;
-    const hrstart = process.hrtime();
-    try {
+    this.emit('render', { moduleOrFullPath, model })
 
+    let html = '',
+      error = undefined;
+
+    const hrstart = process.hrtime();
+
+    try {
       const view = new View(moduleOrFullPath, model, 'view', this.options);
       html = view.execute();
 
       if (this.options.minify) {
-        html = minify(html, getMinifyOptions(this.options.isDevelopment));
+        html = Object.freeze(minify(html, getMinifyOptions(this.options.isDevelopment)));
       }
     } catch (e) {
       logger(e);
@@ -63,7 +68,8 @@ class JsEngine {
     finally {
       const hrend = process.hrtime(hrstart);
       const end = util.format('Execution time (hr): %ds %dms', hrend[0], hrend[1] / 1000000);
-      logger('End rendering: ' + end + moduleOrFullPath);
+      logger('End rendering [%s] %s', moduleOrFullPath, end);
+      this.emit('rendered', { end, html, error })
       if (typeof callback === "function") return callback(error, html);
       return error ? error : html;
     }
