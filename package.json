@@ -41,7 +41,7 @@
     "escape-html": "^1.0.3",
     "fast-memoize": "2.5.1",
     "html-minifier": "4.0.0",
-    "moment": "2.24.0"
+    "moment": "2.29.2"
   },
   "devDependencies": {
     "express": "4.17.1"
